@@ -116,6 +116,11 @@ Current mark-to-market uses reconstructed midpoint only at report end. A missing
 no marked value; this limitation is material for an unresolved, one-sided final book and should be
 read alongside open inventory.
 
+Tick-size changes are market events, ordered by the selected replay clock and source sequence. They
+update per-token validation state before later book events. A preceding explicit tick overrides the
+discovery-time fallback on WebSocket snapshots that omit `tick_size`; public REST recovery snapshots
+can refresh the effective value.
+
 ## Strategies
 
 `NoOpStrategy` must produce zero orders/fills and proves the event stream can replay. The threshold

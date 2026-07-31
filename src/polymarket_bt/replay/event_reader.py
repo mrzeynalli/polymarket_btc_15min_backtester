@@ -7,7 +7,12 @@ from typing import Any
 import pyarrow.parquet as pq
 
 from polymarket_bt.constants import QualityState
-from polymarket_bt.models.books import BookLevel, BookLevelChange, BookSnapshot
+from polymarket_bt.models.books import (
+    BookLevel,
+    BookLevelChange,
+    BookSnapshot,
+    TickSizeChange,
+)
 from polymarket_bt.models.prices import BtcPriceEvent
 from polymarket_bt.models.trades import TradeEvent
 from polymarket_bt.replay.event_clock import ReplayEvent
@@ -83,6 +88,23 @@ class EventReader:
                     parent_change_index=update.change_index,
                     source_priority=20,
                     payload=update,
+                )
+            )
+        for row in _rows(self.storage_root, "tick_size_changes"):
+            if condition_id and row["condition_id"] != condition_id:
+                continue
+            change = TickSizeChange.model_validate(row)
+            events.append(
+                ReplayEvent(
+                    event_type="tick_size_change",
+                    exchange_timestamp_ns=change.exchange_timestamp_ns,
+                    received_utc_ns=change.received_utc_ns,
+                    received_monotonic_ns=change.received_monotonic_ns,
+                    connection_id=change.connection_id,
+                    sequence=change.sequence,
+                    parent_change_index=0,
+                    source_priority=15,
+                    payload=change,
                 )
             )
         for row in _rows(self.storage_root, "trades"):

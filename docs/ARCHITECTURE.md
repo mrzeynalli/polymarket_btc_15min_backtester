@@ -130,6 +130,11 @@ and change index preserve intra-frame order. Cheap checks run after every event:
 nonnegative size, tick compliance, top-of-book agreement when supplied, and non-crossing. A failed
 check invalidates the book and schedules recovery.
 
+`tick_size_change` is a first-class normalized/replay event. The effective tick is retained per
+token and remains authoritative for later WebSocket snapshots that omit the field; a REST snapshot
+can refresh it after reconnect or recovery. This prevents discovery-time metadata from being reused
+after a live tick transition.
+
 Source hashes are retained as opaque values. No invented local hash is presented as equivalent to
 the source algorithm.
 
@@ -139,6 +144,7 @@ the source algorithm.
 flowchart LR
   P1[Snapshot headers + all levels] --> E[Event reader]
   P2[Level changes] --> E
+  P2A[Tick-size changes] --> E
   P3[Trades] --> E
   P4[Separate BTC sources] --> E
   P5[Resolution + quality] --> E

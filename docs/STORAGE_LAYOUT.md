@@ -35,6 +35,7 @@ data/normalized/
   book_snapshots/date=YYYY-MM-DD/hour=HH/part-*.parquet
   book_snapshot_levels/date=YYYY-MM-DD/hour=HH/part-*.parquet
   book_updates/date=YYYY-MM-DD/hour=HH/part-*.parquet
+  tick_size_changes/date=YYYY-MM-DD/hour=HH/part-*.parquet
   trades/date=YYYY-MM-DD/hour=HH/part-*.parquet
   btc_prices/source=<EXACT_SOURCE>/date=YYYY-MM-DD/hour=HH/part-*.parquet
   connection_events/date=YYYY-MM-DD/hour=HH/part-*.parquet

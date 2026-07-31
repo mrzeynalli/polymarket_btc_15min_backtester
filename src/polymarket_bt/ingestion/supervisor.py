@@ -238,6 +238,7 @@ class CollectorSupervisor:
             try:
                 snapshot = await self.clob_rest.fetch_book(market, token_id, outcome)
                 self.reconstructor.apply_snapshot(snapshot)
+                self.parser.set_tick_size(token_id, snapshot.tick_size_scaled)
                 self.snapshot_count += 1
                 self.metrics.rest_requests_total.labels("clob", "200").inc()
                 self.health.update(last_rest_snapshot_utc_ns=snapshot.received_utc_ns)
@@ -332,6 +333,7 @@ class CollectorSupervisor:
             outcome = market.token_outcomes[token_id]
             snapshot = await self.clob_rest.fetch_book(market, token_id, outcome)
             self.reconstructor.apply_snapshot(snapshot)
+            self.parser.set_tick_size(token_id, snapshot.tick_size_scaled)
             self.snapshot_count += 1
             self.health.update(last_rest_snapshot_utc_ns=snapshot.received_utc_ns)
         finally:
@@ -396,10 +398,8 @@ class CollectorSupervisor:
                     self._spawn(
                         self._recover_token(update.token_id), name=f"recover-{update.token_id[:8]}"
                     )
-            for token_id, new_tick in parsed.tick_size_changes:
-                book = self.reconstructor.books.get(token_id)
-                if book:
-                    book.tick_size_scaled = new_tick
+            for tick_change in parsed.tick_size_changes:
+                self.reconstructor.apply_tick_size_change(tick_change)
             self.trade_count += len(parsed.trades)
             for price in parsed.btc_prices:
                 self.btc_price_counts[price.source] = self.btc_price_counts.get(price.source, 0) + 1

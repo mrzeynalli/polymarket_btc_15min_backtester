@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from polymarket_bt.constants import Source
@@ -45,8 +46,42 @@ def test_clob_fixture_types(fixture_root: Path, market: MarketRecord) -> None:
     assert update.updates[0].new_size_scaled == 40_000_000
     assert len(update.top_of_book) == 1
     assert trade.trades[0].size_scaled == 5_000_000
-    assert tick.tick_size_changes[0][1] == 1_000
+    assert tick.tick_size_changes[0].new_tick_size_scaled == 1_000
     assert resolution.resolutions[0]["winning_outcome"] == "Up"
+
+
+def test_tick_change_applies_to_later_book_without_tick_field(
+    fixture_root: Path, market: MarketRecord
+) -> None:
+    parser = EventParser(lambda token: market if token in market.token_outcomes else None)
+    parser.parse_clob(
+        _envelope(fixture_root / "clob" / "tick_size_change.json", Source.CLOB_MARKET_WS)
+    )
+    payload = json.dumps(
+        {
+            "event_type": "book",
+            "market": market.condition_id,
+            "asset_id": market.up_token_id,
+            "timestamp": "1785525653142",
+            "bids": [{"price": "0.004", "size": "5"}],
+            "asks": [{"price": "0.01", "size": "5"}],
+        }
+    )
+    parsed = parser.parse_clob(
+        make_raw_envelope(
+            collector_version="test",
+            run_id="run",
+            connection_id="connection",
+            sequence=2,
+            source=Source.CLOB_MARKET_WS,
+            stream="test",
+            payload=payload,
+            received_utc_ns=1_785_525_657_301_000_000,
+            received_monotonic_ns=101,
+        )
+    )
+
+    assert parsed.snapshots[0].tick_size_scaled == 1_000
 
 
 def test_rtds_sources_and_timestamps(fixture_root: Path, market: MarketRecord) -> None:

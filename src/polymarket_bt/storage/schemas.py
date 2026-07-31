@@ -144,6 +144,24 @@ BOOK_UPDATES = _schema(
     ]
 )
 
+TICK_SIZE_CHANGES = _schema(
+    [
+        ("schema_version", pa.int32(), False),
+        ("tick_change_id", pa.string(), False),
+        ("sequence", pa.int64(), False),
+        ("condition_id", pa.string(), False),
+        ("token_id", pa.string(), False),
+        ("exchange_timestamp_ns", pa.int64(), True),
+        ("received_utc_ns", pa.int64(), False),
+        ("received_monotonic_ns", pa.int64(), False),
+        ("old_tick_size_scaled", pa.int64(), True),
+        ("new_tick_size_scaled", pa.int64(), False),
+        ("connection_id", pa.string(), False),
+        ("source", pa.string(), False),
+        ("raw_event_reference", pa.string(), True),
+    ]
+)
+
 TOP_OF_BOOK = _schema(
     [
         ("schema_version", pa.int32(), False),
@@ -325,6 +343,7 @@ SCHEMAS: dict[str, pa.Schema] = {
     "book_snapshots": BOOK_SNAPSHOTS,
     "book_snapshot_levels": BOOK_SNAPSHOT_LEVELS,
     "book_updates": BOOK_UPDATES,
+    "tick_size_changes": TICK_SIZE_CHANGES,
     "top_of_book": TOP_OF_BOOK,
     "trades": TRADES,
     "btc_prices": BTC_PRICES,

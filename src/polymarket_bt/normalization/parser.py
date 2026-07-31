@@ -17,7 +17,13 @@ from polymarket_bt.constants import (
     USDC_SCALE,
     Source,
 )
-from polymarket_bt.models.books import BookLevel, BookLevelChange, BookSnapshot, TopOfBook
+from polymarket_bt.models.books import (
+    BookLevel,
+    BookLevelChange,
+    BookSnapshot,
+    TickSizeChange,
+    TopOfBook,
+)
 from polymarket_bt.models.events import DataQualityEvent, RawEnvelope
 from polymarket_bt.models.markets import MarketRecord
 from polymarket_bt.models.prices import BtcPriceEvent
@@ -32,7 +38,7 @@ class ParsedEvents:
     btc_prices: list[BtcPriceEvent] = field(default_factory=list)
     top_of_book: list[TopOfBook] = field(default_factory=list)
     resolutions: list[dict[str, Any]] = field(default_factory=list)
-    tick_size_changes: list[tuple[str, int]] = field(default_factory=list)
+    tick_size_changes: list[TickSizeChange] = field(default_factory=list)
     quality: list[DataQualityEvent] = field(default_factory=list)
     event_types: list[str] = field(default_factory=list)
     unknown_count: int = 0
@@ -41,6 +47,42 @@ class ParsedEvents:
 
 def load_json_decimal(raw: str) -> Any:
     return json.loads(raw, parse_float=Decimal, parse_int=int)
+
+
+def parse_tick_size_change(
+    envelope: RawEnvelope,
+    message: dict[str, Any],
+    message_index: int,
+    raw_reference: str,
+) -> TickSizeChange:
+    old_tick = message.get("old_tick_size")
+    return TickSizeChange(
+        tick_change_id=str(
+            uuid.uuid5(
+                uuid.NAMESPACE_URL,
+                f"{envelope.run_id}:{envelope.sequence}:{message_index}:tick_size_change",
+            )
+        ),
+        sequence=envelope.sequence,
+        condition_id=str(message.get("market") or message.get("condition_id") or ""),
+        token_id=str(message["asset_id"]),
+        exchange_timestamp_ns=parse_timestamp_ns(message.get("timestamp")),
+        received_utc_ns=envelope.received_utc_ns,
+        received_monotonic_ns=envelope.received_monotonic_ns,
+        old_tick_size_scaled=(
+            decimal_to_scaled(str(old_tick), POLYMARKET_PRICE_SCALE, field="old_tick_size")
+            if old_tick not in {None, ""}
+            else None
+        ),
+        new_tick_size_scaled=decimal_to_scaled(
+            str(message["new_tick_size"]),
+            POLYMARKET_PRICE_SCALE,
+            field="new_tick_size",
+        ),
+        connection_id=envelope.connection_id,
+        source=Source.CLOB_MARKET_WS.value,
+        raw_event_reference=raw_reference,
+    )
 
 
 def _quality(
@@ -93,6 +135,10 @@ def _reported_top_values(
 class EventParser:
     def __init__(self, market_for_token: Callable[[str], MarketRecord | None]) -> None:
         self.market_for_token = market_for_token
+        self._tick_size_by_token: dict[str, int] = {}
+
+    def set_tick_size(self, token_id: str, tick_size_scaled: int) -> None:
+        self._tick_size_by_token[token_id] = tick_size_scaled
 
     def parse(self, envelope: RawEnvelope, raw_reference: str | None = None) -> ParsedEvents:
         if envelope.source == Source.CLOB_MARKET_WS:
@@ -150,6 +196,13 @@ class EventParser:
             market = self.market_for_token(token_id)
             if market is None:
                 raise ValueError(f"unknown token mapping: {token_id}")
+            raw_tick_size = message.get("tick_size")
+            tick_size_scaled = (
+                decimal_to_scaled(str(raw_tick_size), POLYMARKET_PRICE_SCALE, field="tick_size")
+                if raw_tick_size not in {None, ""}
+                else self._tick_size_by_token.get(token_id, market.tick_size_scaled)
+            )
+            self.set_tick_size(token_id, tick_size_scaled)
 
             def parse_levels(side: str) -> tuple[BookLevel, ...]:
                 raw_levels = message.get(side, [])
@@ -186,7 +239,7 @@ class EventParser:
                 received_utc_ns=envelope.received_utc_ns,
                 received_monotonic_ns=envelope.received_monotonic_ns,
                 book_hash=str(message.get("hash")) if message.get("hash") is not None else None,
-                tick_size_scaled=market.tick_size_scaled,
+                tick_size_scaled=tick_size_scaled,
                 minimum_order_size_scaled=market.minimum_order_size_scaled,
                 neg_risk=market.neg_risk,
                 bids=parse_levels("bids"),
@@ -373,16 +426,14 @@ class EventParser:
                 )
             )
         elif event_type == "tick_size_change":
-            result.tick_size_changes.append(
-                (
-                    str(message["asset_id"]),
-                    decimal_to_scaled(
-                        str(message["new_tick_size"]),
-                        POLYMARKET_PRICE_SCALE,
-                        field="new_tick_size",
-                    ),
-                )
+            tick_change = parse_tick_size_change(
+                envelope,
+                message,
+                message_index,
+                raw_reference,
             )
+            self.set_tick_size(tick_change.token_id, tick_change.new_tick_size_scaled)
+            result.tick_size_changes.append(tick_change)
         elif event_type == "market_resolved":
             result.resolutions.append(
                 {

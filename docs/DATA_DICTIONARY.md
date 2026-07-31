@@ -176,6 +176,25 @@ One row per `price_changes[]` element.
 | `connection_id` | string | Source connection UUID. |
 | `raw_event_reference` | string/null | Raw file/line. |
 
+## `tick_size_changes`
+
+One row per explicit CLOB tick transition. These rows are replayed before later price changes and
+field-omitting WebSocket snapshots.
+
+| Field | Type/null | Meaning |
+|---|---|---|
+| `schema_version` | int32 | Schema version. |
+| `tick_change_id` | string | Deterministic UUID from run, sequence, and message index. |
+| `sequence` | int64 | Raw frame process sequence. |
+| `condition_id`, `token_id` | string | Explicit market/token mapping. |
+| `exchange_timestamp_ns` | int64/null | CLOB event timestamp. |
+| `received_utc_ns`, `received_monotonic_ns` | int64 | Local receipt pair. |
+| `old_tick_size_scaled` | int64/null | Reported prior tick at the 1e6 price scale. |
+| `new_tick_size_scaled` | int64 | New effective tick at the 1e6 price scale. |
+| `connection_id` | string | Source WebSocket connection UUID. |
+| `source` | string | `clob_market_ws`. |
+| `raw_event_reference` | string/null | Raw file/line. |
+
 ## `top_of_book`
 
 Optional reproducible derived table. The current normalizer declares this schema but does not emit it

@@ -276,6 +276,8 @@ def validate_books(
                 reconstructor.apply_snapshot(event.payload)
             elif event.event_type == "book_update":
                 reconstructor.apply_change(event.payload)
+            elif event.event_type == "tick_size_change":
+                reconstructor.apply_tick_size_change(event.payload)
         except Exception as exc:
             failures.append(
                 {

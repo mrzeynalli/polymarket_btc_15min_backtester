@@ -23,7 +23,12 @@ from polymarket_bt.models.books import BookLevel, BookSnapshot
 from polymarket_bt.models.events import RawEnvelope
 from polymarket_bt.models.markets import MarketRecord
 from polymarket_bt.normalization.deduplication import deduplicate_trades
-from polymarket_bt.normalization.parser import EventParser, ParsedEvents, load_json_decimal
+from polymarket_bt.normalization.parser import (
+    EventParser,
+    ParsedEvents,
+    load_json_decimal,
+    parse_tick_size_change,
+)
 from polymarket_bt.storage.manifest import ManifestEntry, ManifestStore
 from polymarket_bt.storage.parquet_writer import ParquetDatasetWriter
 from polymarket_bt.storage.sqlite_state import OperationalState
@@ -59,6 +64,50 @@ class Normalizer:
             reference = f"{entry.file_id}:{line_number}"
             envelopes.append((RawEnvelope.model_validate_json(line), reference))
         return envelopes
+
+    def _tick_backfill_rows(self, entries: list[ManifestEntry]) -> list[dict[str, Any]]:
+        """Backfill tick events from raw files normalized before this dataset existed."""
+        import pyarrow.parquet as pq
+
+        existing_ids: set[str] = set()
+        directory = self.config.storage.root / "normalized" / "tick_size_changes"
+        if directory.exists():
+            for path in directory.rglob("*.parquet"):
+                table = pq.ParquetFile(path).read(columns=["tick_change_id"])
+                existing_ids.update(str(value) for value in table["tick_change_id"].to_pylist())
+
+        rows: list[dict[str, Any]] = []
+        seen = set(existing_ids)
+        clob_entries = sorted(
+            (
+                entry
+                for entry in entries
+                if entry.format == "jsonl.zst"
+                and entry.relative_path.startswith("raw/source=clob_market_ws/")
+            ),
+            key=lambda entry: (entry.first_sequence or 0, entry.created_utc_ns),
+        )
+        for entry in clob_entries:
+            for envelope, reference in self._read_envelopes(entry):
+                try:
+                    payload = load_json_decimal(envelope.payload_raw)
+                except (json.JSONDecodeError, TypeError, ValueError):
+                    continue
+                messages = payload if isinstance(payload, list) else [payload]
+                for message_index, message in enumerate(messages):
+                    if (
+                        not isinstance(message, dict)
+                        or message.get("event_type") != "tick_size_change"
+                    ):
+                        continue
+                    try:
+                        change = parse_tick_size_change(envelope, message, message_index, reference)
+                    except (KeyError, TypeError, ValueError):
+                        continue
+                    if change.tick_change_id not in seen:
+                        rows.append(change.model_dump())
+                        seen.add(change.tick_change_id)
+        return rows
 
     def _market_rows(
         self, envelope: RawEnvelope, reference: str
@@ -283,6 +332,7 @@ class Normalizer:
             rows["book_snapshots"].append(header)
             rows["book_snapshot_levels"].extend(levels)
         rows["book_updates"].extend(item.model_dump() for item in parsed.updates)
+        rows["tick_size_changes"].extend(item.model_dump() for item in parsed.tick_size_changes)
         rows["top_of_book"].extend(
             {"schema_version": SCHEMA_VERSION, **item.model_dump()} for item in parsed.top_of_book
         )
@@ -320,9 +370,12 @@ class Normalizer:
     def normalize(self, *, date: str | None = None) -> dict[str, Any]:
         started = utc_now_ns()
         run_id = str(uuid.uuid4())
+        all_entries = self.manifest.entries()
+        tick_backfill_key = "normalization_migration:tick_size_changes:v1"
+        tick_backfill_needed = self.state.get_checkpoint(tick_backfill_key) is None
         raw_entries = [
             entry
-            for entry in self.manifest.entries()
+            for entry in all_entries
             if entry.format == "jsonl.zst"
             and entry.relative_path.startswith("raw/")
             and (date is None or f"date={date}" in entry.relative_path)
@@ -331,9 +384,15 @@ class Normalizer:
         batch_digest = hashlib.sha256(
             "".join(sorted(entry.sha256 for entry in raw_entries)).encode()
         ).hexdigest()
-        if raw_entries and self.state.get_checkpoint(f"normalization_batch:{batch_digest}"):
+        if (
+            raw_entries
+            and self.state.get_checkpoint(f"normalization_batch:{batch_digest}")
+            and not tick_backfill_needed
+        ):
             return {"status": "already_normalized", "raw_files": len(raw_entries)}
         rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        if tick_backfill_needed:
+            rows["tick_size_changes"].extend(self._tick_backfill_rows(all_entries))
         invalid = 0
         unknown = 0
         for entry in raw_entries:
@@ -409,6 +468,10 @@ class Normalizer:
                     TradeEvent.model_validate(row) for row in rows["trades"]
                 )
             ]
+        if rows["tick_size_changes"]:
+            rows["tick_size_changes"] = list(
+                {str(row["tick_change_id"]): row for row in rows["tick_size_changes"]}.values()
+            )
         written_rows = 0
         output_files: list[str] = []
         for dataset, dataset_rows in list(rows.items()):
@@ -442,6 +505,8 @@ class Normalizer:
         if raw_entries:
             self.state.checkpoint(f"normalization_batch:{batch_digest}", run_id)
         self.manifest.export_parquet()
+        if tick_backfill_needed:
+            self.state.checkpoint(tick_backfill_key, run_id)
         return {
             "status": "complete",
             "normalization_run_id": run_id,

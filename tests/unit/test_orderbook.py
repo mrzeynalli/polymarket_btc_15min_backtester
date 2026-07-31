@@ -4,7 +4,8 @@ import uuid
 
 import pytest
 
-from polymarket_bt.models.books import BookLevel, BookLevelChange, BookSnapshot
+from polymarket_bt.models.books import BookLevel, BookLevelChange, BookSnapshot, TickSizeChange
+from polymarket_bt.orderbook.reconstructor import BookReconstructor
 from polymarket_bt.orderbook.state import InvalidBookState, OrderBook
 
 
@@ -135,3 +136,37 @@ def test_stale_snapshot_does_not_overwrite_newer_state() -> None:
     )
     assert book.replace(stale) is False
     assert book.best_bid == 300_000
+
+
+def test_tick_event_overrides_stale_ws_snapshot_metadata() -> None:
+    reconstructor = BookReconstructor()
+    initial = snapshot().model_copy(update={"source": "clob_market_ws"})
+    reconstructor.apply_snapshot(initial)
+    reconstructor.apply_tick_size_change(
+        TickSizeChange(
+            tick_change_id="tick-1",
+            sequence=2,
+            condition_id="condition",
+            token_id="token",
+            exchange_timestamp_ns=4,
+            received_utc_ns=4,
+            received_monotonic_ns=4,
+            old_tick_size_scaled=10_000,
+            new_tick_size_scaled=1_000,
+            connection_id="connection",
+            source="clob_market_ws",
+        )
+    )
+    stale_metadata = initial.model_copy(
+        update={
+            "snapshot_id": "after-tick",
+            "sequence": 3,
+            "tick_size_scaled": 10_000,
+            "bids": (BookLevel(price_scaled=304_000, size_scaled=1_000_000),),
+        }
+    )
+
+    reconstructor.apply_snapshot(stale_metadata)
+
+    assert reconstructor.books["token"].tick_size_scaled == 1_000
+    assert reconstructor.books["token"].best_bid == 304_000

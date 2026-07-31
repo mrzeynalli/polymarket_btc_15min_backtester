@@ -55,6 +55,22 @@ class BookLevelChange(FrozenModel):
     raw_event_reference: str | None = None
 
 
+class TickSizeChange(FrozenModel):
+    schema_version: int = SCHEMA_VERSION
+    tick_change_id: str
+    sequence: int
+    condition_id: str
+    token_id: str
+    exchange_timestamp_ns: int | None
+    received_utc_ns: int
+    received_monotonic_ns: int
+    old_tick_size_scaled: int | None
+    new_tick_size_scaled: int
+    connection_id: str
+    source: str
+    raw_event_reference: str | None = None
+
+
 class TopOfBook(FrozenModel):
     condition_id: str
     token_id: str

@@ -142,6 +142,9 @@ class BacktestEngine:
         if event.event_type == "book_update":
             self.reconstructor.apply_change(payload)
             return self.strategy.on_market_event(event, self.context)
+        if event.event_type == "tick_size_change":
+            self.reconstructor.apply_tick_size_change(payload)
+            return self.strategy.on_market_event(event, self.context)
         if event.event_type == "btc_price":
             self.context.btc_prices[payload.source] = payload
             return self.strategy.on_btc_price(payload, self.context)

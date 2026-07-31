@@ -81,6 +81,15 @@ The optional per-change `best_bid` and `best_ask` are compared to reconstructed 
 `hash` is stored but not recomputed because no official equivalent hash algorithm was documented in
 the reviewed pages.
 
+At the 2026-07-31 live tick transition, the feed sent explicit `tick_size_change` frames from `0.01`
+to `0.001` before prices such as `0.004` and `0.996`. Later full WebSocket `book` frames did not
+always repeat a `tick_size` field, while public REST `/book` did report `tick_size="0.001"`. The
+collector therefore persists tick changes as their own normalized events, retains the last explicit
+tick per token, applies it to subsequent field-omitting WebSocket snapshots, and refreshes it from
+authoritative REST recovery snapshots. Replay applies the same events in source order. The raw live
+transition is covered by a sanitized fixture/regression test; absent or contradictory tick state
+still fails closed.
+
 During the 2026-07-31 smoke capture, an exhausted former best level was not always accompanied by a
 separate zero-size change. For example, a frame set the `0.36` bid to `450` and reported best bid
 `0.36`, while the preceding source state had best bid `0.37`; no intervening `0.37/0` row was present.
