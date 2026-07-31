@@ -26,6 +26,11 @@ done
 for path in configs docs src scripts deploy; do
   cp -a "$project_dir/$path" "$release_dir/$path"
 done
+if git -C "$project_dir" rev-parse HEAD > "$release_dir/.release-commit" 2>/dev/null; then
+  chmod 0644 "$release_dir/.release-commit"
+else
+  printf '%s\n' "unavailable-no-git-repository" > "$release_dir/.release-commit"
+fi
 
 python3 -m venv "$release_dir/.venv"
 lock_without_editable="$(mktemp)"
@@ -51,7 +56,12 @@ fi
 systemctl daemon-reload
 
 if $start_service; then
-  systemctl enable --now polymarket-collector.service
+  systemctl enable polymarket-collector.service
+  if systemctl is-active --quiet polymarket-collector.service; then
+    systemctl restart polymarket-collector.service
+  else
+    systemctl start polymarket-collector.service
+  fi
 fi
 
 echo "Installed release: $release_dir"

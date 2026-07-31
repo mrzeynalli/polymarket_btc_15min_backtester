@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from polymarket_bt.backtest.engine import BacktestEngine
+from polymarket_bt.backtest.report import _git_commit
 from polymarket_bt.config import BacktestConfig, FeeConfig, LatencyConfig
 from polymarket_bt.constants import QualityState
 from polymarket_bt.models.books import BookLevel, BookSnapshot
@@ -143,3 +146,8 @@ def test_degraded_time_uses_interval_duration_not_presence() -> None:
     ]
     result = BacktestEngine(config(), NoOpStrategy(), quality_intervals=quality).run(events())
     assert result.summary.degraded_time_ppm == 333_333
+
+
+def test_release_commit_fallback(tmp_path: Path) -> None:
+    (tmp_path / ".release-commit").write_text("abc123\n", encoding="utf-8")
+    assert _git_commit(tmp_path) == "abc123"

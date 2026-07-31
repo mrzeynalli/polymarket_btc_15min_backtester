@@ -40,7 +40,8 @@ sudo bash scripts/install_systemd.sh --start
 The installer creates an unprivileged system account when absent, copies a timestamped release,
 builds its isolated virtual environment from pinned dependencies, installs the unit and external
 environment file, atomically switches `current`, reloads systemd, and—only with `--start`—enables and
-starts the service.
+starts or restarts the service. Each immutable release contains `.release-commit`; backtest reports
+use it when the release is outside a Git working tree.
 
 Important unit properties:
 
@@ -188,11 +189,14 @@ archive and retain the failed release for diagnosis.
 
 ```bash
 sudo chown -R 65532:65532 data
-docker compose build
+GIT_COMMIT="$(git rev-parse HEAD)" docker compose build
 docker compose up -d collector
 docker compose ps
 docker compose logs -f collector
 ```
+
+If `GIT_COMMIT` is omitted, the image records `unknown-container-build` rather than inventing
+provenance.
 
 Inside the container health binds `0.0.0.0` only because Compose publishes it exclusively on host
 `127.0.0.1`. The root filesystem is read-only, `/tmp` is tmpfs, and the process runs as UID/GID

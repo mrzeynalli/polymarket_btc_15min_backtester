@@ -79,10 +79,10 @@ sudo journalctl -u polymarket-collector.service -f
 Once installed and enabled, systemd starts it at boot and restarts it after failures. See
 `docs/OPERATIONS.md` for installation, upgrades, shutdown, recovery, and rollback.
 
-Docker Compose is also supported:
+Docker Compose is also supported. Stamp the build with its Git provenance:
 
 ```bash
-docker compose build
+GIT_COMMIT="$(git rev-parse HEAD)" docker compose build
 docker compose up -d collector
 docker compose logs -f collector
 ```

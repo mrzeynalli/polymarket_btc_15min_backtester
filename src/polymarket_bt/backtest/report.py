@@ -38,6 +38,25 @@ def _money(value: int) -> str:
     return f"{Decimal(value) / USDC_SCALE:.6f}"
 
 
+def _git_commit(project_root: Path) -> str:
+    try:
+        return subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=project_root,
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        release_commit = project_root / ".release-commit"
+        return (
+            release_commit.read_text(encoding="utf-8").strip()
+            if release_commit.is_file()
+            else "unavailable-no-git-repository"
+        )
+
+
 def write_backtest_report(
     artifacts: BacktestArtifacts,
     backtest_config: BacktestConfig,
@@ -61,17 +80,7 @@ def write_backtest_report(
         "simulation_fingerprint": artifacts.backtest_run_id,
     }
     _atomic_text(root / "environment.json", json.dumps(environment, indent=2, sort_keys=True))
-    try:
-        commit = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        ).stdout.strip()
-    except (OSError, subprocess.SubprocessError):
-        commit = "unavailable-no-git-repository"
+    commit = _git_commit(project_root)
     _atomic_text(root / "git_commit.txt", commit + "\n")
     manifest_entries = [
         entry.model_dump(mode="json")

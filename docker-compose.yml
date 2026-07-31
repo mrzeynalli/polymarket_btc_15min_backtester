@@ -1,6 +1,9 @@
 services:
   collector:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_COMMIT: "${GIT_COMMIT:-unknown-container-build}"
     restart: unless-stopped
     command: ["collect", "--config", "configs/collector.yaml"]
     environment:
