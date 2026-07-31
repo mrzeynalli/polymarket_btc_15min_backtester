@@ -167,6 +167,12 @@ when present.
 
 ## Known current limitations
 
+- A live public Data API response observed on 2026-07-31 contained trade prices with more than six
+  fractional digits (for example `0.9560913706`), while the corresponding CLOB book/trade scale is
+  1e6. The raw response is retained exactly. Reconciliation now compares arbitrary-precision
+  decimals directly, records the original API values in its report, and classifies a differing
+  strongly identified row as `conflicting`; it never rounds the API value into the normalized CLOB
+  scale or aborts the whole job.
 - Data API reconciliation currently requests up to 10,000 public trades in one response. A market
   exceeding that count needs pagination before reconciliation can be called complete.
 - Gamma close/resolution metadata is refreshed while events remain discoverable, but lifecycle
