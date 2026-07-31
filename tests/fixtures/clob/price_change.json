@@ -1,0 +1,16 @@
+{
+  "market": "0xe9f9f391ea621795260318c03e8fb2ce9f9c3735c00f6b5fc36d6fa9fdf6fba7",
+  "price_changes": [
+    {
+      "asset_id": "34514733905773960524951981626001763630472774201069326821853681208375806114523",
+      "price": "0.32",
+      "size": "40",
+      "side": "BUY",
+      "hash": "fixture-update-hash",
+      "best_bid": "0.32",
+      "best_ask": "0.33"
+    }
+  ],
+  "timestamp": "1785525651141",
+  "event_type": "price_change"
+}

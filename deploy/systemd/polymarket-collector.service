@@ -1,0 +1,31 @@
+[Unit]
+Description=Polymarket BTC 15-minute public data collector
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=simple
+User=polymarket-data
+Group=polymarket-data
+WorkingDirectory=/opt/polymarket-btc-backtester/current
+EnvironmentFile=-/etc/polymarket-collector.env
+ExecStart=/opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt collect --config /opt/polymarket-btc-backtester/current/configs/collector.yaml
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=45
+KillSignal=SIGTERM
+LimitNOFILE=65536
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+StateDirectory=polymarket-btc-backtester
+StateDirectoryMode=0750
+ReadWritePaths=/var/lib/polymarket-btc-backtester
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

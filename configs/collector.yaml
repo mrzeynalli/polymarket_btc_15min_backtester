@@ -1,0 +1,64 @@
+# Deployed public-data-only configuration. No credential fields exist.
+environment: production-data-only
+timezone: UTC
+collector_version: "0.1.0"
+discovery:
+  asset: BTC
+  duration_minutes: 15
+  normal_poll_seconds: 30
+  boundary_poll_seconds: 5
+  boundary_window_before_seconds: 90
+  boundary_window_after_seconds: 30
+  minimum_match_score: 0.90
+  candidate_intervals_before: 1
+  candidate_intervals_after: 2
+clob:
+  rest_base_url: "https://clob.polymarket.com"
+  websocket_url: "wss://ws-subscriptions-clob.polymarket.com/ws/market"
+  heartbeat_seconds: 10
+  heartbeat_timeout_seconds: 5
+  max_missed_heartbeats: 3
+  custom_feature_enabled: true
+  validation_snapshot_seconds: 30
+  request_timeout_seconds: 10
+rtds:
+  websocket_url: "wss://ws-live-data.polymarket.com"
+  heartbeat_seconds: 5
+  heartbeat_timeout_seconds: 5
+  max_missed_heartbeats: 3
+  binance_symbols: ["btcusdt"]
+  chainlink_symbols: ["btc/usd"]
+storage:
+  root: "./data"
+  raw_zstd_level: 3
+  parquet_zstd_level: 6
+  rotate_minutes: 15
+  rotate_uncompressed_mb: 128
+  writer_batch_events: 1000
+  writer_batch_wait_ms: 100
+  flush_seconds: 1
+  fsync_seconds: 5
+  parquet_target_mb: 128
+queues:
+  raw_max_events: 100000
+  normalization_max_events: 100000
+  book_max_events: 100000
+  high_watermark_fraction: 0.80
+reconnect:
+  initial_seconds: 0.5
+  maximum_seconds: 30
+  stable_reset_seconds: 60
+  jitter: true
+monitoring:
+  health_bind: "127.0.0.1"
+  health_port: 9108
+  metrics_enabled: true
+  log_level: INFO
+  status_file: "./data/state/status.json"
+  warning_free_gb: 20
+  critical_free_gb: 10
+  emergency_free_gb: 5
+shutdown:
+  drain_timeout_seconds: 30
+  fsync_on_close: true
+smoke_test_seconds: 30

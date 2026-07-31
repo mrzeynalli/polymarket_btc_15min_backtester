@@ -1,0 +1,28 @@
+strategy: no_op
+strategy_parameters: {}
+starting_cash: "1000.000000"
+replay_clock: local_receive_time
+reject_on_gap: true
+random_seed: 1729
+allow_negative_cash: false
+allow_short_positions: false
+inventory_method: weighted_average
+resolution_mode: real_time_resolution_mode
+latency:
+  model: constant
+  constant_ms: 50
+  samples_ms: []
+  lognormal_mu: 3.5
+  lognormal_sigma: 0.4
+fee:
+  version: polymarket-fee-schedule-v2-2026-03-31
+  effective_start: "2026-03-31T00:00:00Z"
+  effective_end: null
+  market_type: crypto
+  liquidity_role: taker
+  formula: shares_rate_p_one_minus_p
+  rate: "0.07"
+  exponent: 1
+  minimum_fee: "0.000001"
+  rounding: half_up
+maker_queue_model: conservative

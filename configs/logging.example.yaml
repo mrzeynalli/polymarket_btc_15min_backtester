@@ -1,0 +1,8 @@
+version: 1
+format: json
+level: INFO
+destination: stderr
+rotation:
+  managed_by: systemd-journald-or-logrotate
+  max_size_mb: 100
+  keep: 14

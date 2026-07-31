@@ -1,0 +1,17 @@
+services:
+  collector:
+    build: .
+    restart: unless-stopped
+    command: ["collect", "--config", "configs/collector.yaml"]
+    environment:
+      POLYMARKET_BT_HEALTH_BIND: "0.0.0.0"
+    volumes:
+      - ./data:/app/data
+      - ./configs/collector.yaml:/app/configs/collector.yaml:ro
+    ports:
+      - "127.0.0.1:9108:9108"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

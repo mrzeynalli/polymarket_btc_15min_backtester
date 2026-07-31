@@ -1,0 +1,69 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polymarket-btc-backtester"
+version = "0.1.0"
+description = "Public-data-only Polymarket BTC 15-minute recorder and deterministic backtester"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "Proprietary" }
+authors = [{ name = "Polymarket BTC Recorder Operators" }]
+dependencies = [
+  "duckdb>=1.3,<2",
+  "httpx>=0.28,<1",
+  "orjson>=3.10,<4",
+  "prometheus-client>=0.22,<1",
+  "pyarrow>=20,<23",
+  "pydantic>=2.11,<3",
+  "pydantic-settings>=2.10,<3",
+  "python-dateutil>=2.9,<3",
+  "PyYAML>=6.0,<7",
+  "sortedcontainers>=2.4,<3",
+  "structlog>=25.2,<26",
+  "typer>=0.16,<1",
+  "websockets>=15,<17",
+  "zstandard>=0.23,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "hypothesis>=6.135,<7",
+  "mypy>=1.16,<2",
+  "pytest>=8.4,<10",
+  "pytest-asyncio>=1.0,<2",
+  "ruff>=0.12,<1",
+  "types-python-dateutil>=2.9,<3",
+  "types-PyYAML>=6.0,<7",
+]
+
+[project.scripts]
+polymarket-bt = "polymarket_bt.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polymarket_bt"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = ["live: tests requiring public internet access"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+check_untyped_defs = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+ignore_missing_imports = true

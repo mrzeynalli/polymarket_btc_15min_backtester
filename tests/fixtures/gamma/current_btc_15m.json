@@ -1,0 +1,44 @@
+{
+  "$schema": "https://gamma-api.polymarket.com/schemas/Event.json",
+  "id": "773988",
+  "ticker": "btc-updown-15m-1785525300",
+  "slug": "btc-updown-15m-1785525300",
+  "title": "Bitcoin Up or Down - July 31, 3:15PM-3:30PM ET",
+  "description": "This market will resolve to \"Up\" if the Bitcoin price at the end of the time range specified in the title is greater than or equal to the price at the beginning of that range. Otherwise, it will resolve to \"Down\".",
+  "resolutionSource": "https://data.chain.link/streams/btc-usd",
+  "startTime": "2026-07-31T19:15:00Z",
+  "endDate": "2026-07-31T19:30:00Z",
+  "active": true,
+  "closed": false,
+  "enableOrderBook": true,
+  "markets": [
+    {
+      "id": "3229929",
+      "question": "Bitcoin Up or Down - July 31, 3:15PM-3:30PM ET",
+      "conditionId": "0xe9f9f391ea621795260318c03e8fb2ce9f9c3735c00f6b5fc36d6fa9fdf6fba7",
+      "slug": "btc-updown-15m-1785525300",
+      "resolutionSource": "https://data.chain.link/streams/btc-usd",
+      "endDate": "2026-07-31T19:30:00Z",
+      "eventStartTime": "2026-07-31T19:15:00Z",
+      "description": "This market resolves Up when the ending Chainlink BTC/USD value is greater than or equal to the starting value; otherwise Down.",
+      "outcomes": "[\"Up\", \"Down\"]",
+      "active": true,
+      "closed": false,
+      "enableOrderBook": true,
+      "orderPriceMinTickSize": 0.01,
+      "orderMinSize": 5,
+      "clobTokenIds": "[\"34514733905773960524951981626001763630472774201069326821853681208375806114523\", \"24782807235358152507786845281741214375103685901317012758507937693678885276944\"]",
+      "acceptingOrders": true,
+      "negRisk": false,
+      "feesEnabled": true,
+      "feeType": "crypto_fees_v2",
+      "feeSchedule": {"exponent": 1, "rate": 0.07, "takerOnly": true, "rebateRate": 0.2}
+    }
+  ],
+  "series": [{"id": "10192", "slug": "btc-up-or-down-15m", "title": "BTC Up or Down 15m", "recurrence": "15m"}],
+  "tags": [
+    {"id": "235", "label": "Bitcoin", "slug": "bitcoin"},
+    {"id": "102467", "label": "15M", "slug": "15M"},
+    {"id": "102127", "label": "Up or Down", "slug": "up-or-down"}
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "event_type": "book",
+  "asset_id": "34514733905773960524951981626001763630472774201069326821853681208375806114523",
+  "market": "0xe9f9f391ea621795260318c03e8fb2ce9f9c3735c00f6b5fc36d6fa9fdf6fba7",
+  "bids": [{"price": "0.31", "size": "30"}, {"price": "0.32", "size": "20"}],
+  "asks": [{"price": "0.33", "size": "25"}, {"price": "0.34", "size": "60"}],
+  "timestamp": "1785525650141",
+  "hash": "fixture-book-hash"
+}
