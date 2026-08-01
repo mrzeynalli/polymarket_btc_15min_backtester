@@ -45,6 +45,12 @@ if ! getent passwd polymarket-data >/dev/null; then
   useradd --system --home-dir /nonexistent --shell /usr/sbin/nologin polymarket-data
 fi
 
+data_root="/var/lib/polymarket-btc-backtester"
+install -d -m 0750 -o polymarket-data -g polymarket-data "$data_root"
+for path in raw normalized manifests state reports quarantine; do
+  install -d -m 0750 -o polymarket-data -g polymarket-data "$data_root/$path"
+done
+
 ln -sfn "$release_dir" /opt/polymarket-btc-backtester/current
 install -m 0644 "$project_dir/deploy/systemd/polymarket-collector.service" \
   /etc/systemd/system/polymarket-collector.service

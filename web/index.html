@@ -511,6 +511,13 @@
     function money(value) { return value == null ? '—' : `$${(value / SHARE_SCALE).toLocaleString(undefined, { maximumFractionDigits: 2 })}`; }
     function btc(value) { return value == null ? '—' : `$${(value / BTC_SCALE).toLocaleString(undefined, { maximumFractionDigits: 2 })}`; }
     function latest(points) { return points && points.length ? points[points.length - 1] : null; }
+    function latestQuoted(points) {
+      if (!points?.length) return null;
+      for (let index = points.length - 1; index >= 0; index -= 1) {
+        if (points[index].mid != null) return points[index];
+      }
+      return latest(points);
+    }
     function statusLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' ') : '—'; }
 
     function groupedMarkets(markets) {
@@ -588,7 +595,11 @@
         ]);
         if (request !== state.requestId) return;
         state.series = series; state.trades = trades;
-        const target = Math.min(Date.now(), market.end_ms); state.cursorMs = target; $('timeCursor').value = target;
+        const upQuote = latestQuoted(series.series.UP), downQuote = latestQuoted(series.series.DOWN);
+        const target = market.status === 'recording'
+          ? Math.min(Date.now(), market.end_ms)
+          : Math.min(market.end_ms, upQuote?.t_ms ?? market.end_ms, downQuote?.t_ms ?? market.end_ms);
+        state.cursorMs = target; $('timeCursor').value = target;
         renderAll(); await loadBook(market.status === 'recording' ? null : target, request);
         setupLiveRefresh();
       } catch (error) {
@@ -628,7 +639,7 @@
     }
     function renderSummary() {
       const series = state.series; if (!series) return;
-      const up = latest(series.series.UP), down = latest(series.series.DOWN);
+      const up = latestQuoted(series.series.UP), down = latestQuoted(series.series.DOWN);
       $('upMid').textContent = price(up?.mid); $('upQuote').textContent = `bid ${price(up?.bid)} · ask ${price(up?.ask)}`;
       $('downMid').textContent = price(down?.mid); $('downQuote').textContent = `bid ${price(down?.bid)} · ask ${price(down?.ask)}`;
       $('complementTotal').textContent = up?.mid != null && down?.mid != null ? price(up.mid + down.mid, 4) : '—';
