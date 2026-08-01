@@ -58,10 +58,12 @@ keeps the visible book fresh before the active raw segment is finalized. It is c
 ## Automatic refresh
 
 `polymarket-normalize.timer` runs a bounded four-file normalization batch roughly every two minutes.
-This bounds memory while catching up safely. Raw partitions finalize at size/time thresholds even if
-an old hour receives no subsequent event. The website reads the registry on every list refresh, so a
-new slug appears immediately as `recording` or `upcoming`; its completed chart becomes available as
-soon as the containing raw segment finalizes and the timer processes it.
+This bounds memory while catching up safely. Bounded runs prioritize the newest finalized archives,
+so a completed 15-minute slug is published before older backlog; spare cycles continue working
+backward. Raw partitions finalize at size/time thresholds even if an old hour receives no subsequent
+event. The website reads the registry on every list refresh, so a new slug appears when it starts
+recording; its completed chart becomes available as soon as its raw segment finalizes and the timer
+processes it.
 
 ## Local operation
 

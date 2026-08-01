@@ -383,6 +383,13 @@ class Normalizer:
             and (date is None or f"date={date}" in entry.relative_path)
             and not self.state.raw_file_processed(entry.relative_path, entry.sha256)
         ]
+        # Bounded scheduled runs keep the dashboard fresh by publishing the
+        # newest finalized archives first. Unbounded operator runs retain
+        # chronological ordering for predictable full-history normalization.
+        raw_entries.sort(
+            key=lambda entry: (entry.closed_utc_ns, entry.relative_path),
+            reverse=max_files is not None,
+        )
         if max_files is not None:
             if max_files < 1:
                 raise ValueError("max_files must be positive")

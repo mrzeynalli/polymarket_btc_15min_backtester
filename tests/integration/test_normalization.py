@@ -131,6 +131,50 @@ async def test_tick_dataset_backfills_already_processed_raw_file(
     assert pq.ParquetFile(tick_files[0]).metadata.num_rows == 1
 
 
+async def test_bounded_normalization_prioritizes_newest_raw_file(
+    collector_config: CollectorConfig,
+) -> None:
+    manifest = ManifestStore(collector_config.storage.root)
+    for sequence in (1, 2):
+        archive = RawArchive(collector_config, manifest)
+        await archive.start()
+        assert archive.enqueue(
+            make_raw_envelope(
+                collector_version="test",
+                run_id="priority-run",
+                connection_id=f"connection-{sequence}",
+                sequence=sequence,
+                source=Source.INTERNAL,
+                stream="operations",
+                payload="{}",
+                event_type_hint="connection_event",
+            )
+        )
+        await archive.stop()
+
+    raw_entries = sorted(
+        (entry for entry in manifest.entries() if entry.format == "jsonl.zst"),
+        key=lambda entry: (entry.closed_utc_ns, entry.relative_path),
+    )
+    assert len(raw_entries) == 2
+
+    from polymarket_bt.normalization.normalizer import Normalizer
+
+    normalizer = Normalizer(collector_config)
+    try:
+        result = normalizer.normalize(max_files=1)
+    finally:
+        normalizer.close()
+    assert result["raw_files_processed"] == 1
+
+    state = OperationalState(collector_config.storage.root / "state" / "normalization.sqlite")
+    try:
+        assert not state.raw_file_processed(raw_entries[0].relative_path, raw_entries[0].sha256)
+        assert state.raw_file_processed(raw_entries[1].relative_path, raw_entries[1].sha256)
+    finally:
+        state.close()
+
+
 def test_compaction_validates_rows_and_retains_originals(
     collector_config: CollectorConfig,
 ) -> None:
