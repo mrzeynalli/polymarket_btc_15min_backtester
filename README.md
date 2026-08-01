@@ -129,6 +129,28 @@ GROUP BY source, symbol;
 
 Set `hive_partitioning=false` when a physical column such as `source` is also present in the path.
 
+## Read-only web dashboard
+
+The project includes a self-contained responsive market explorer in `web/index.html` and a loopback
+JSON API. Users can select a time-based slug, compare UP/DOWN bid, ask, midpoint, and spread paths,
+click any chart time to reconstruct both full books, and inspect public trades and BTC reference
+prices. New registry slugs appear automatically; a bounded systemd normalization timer publishes
+newly finalized archives without interrupting collection.
+
+```bash
+.venv/bin/polymarket-bt dashboard \
+  --config configs/collector.yaml \
+  --host 127.0.0.1 \
+  --port 9110 \
+  --index web/index.html
+
+.venv/bin/polymarket-bt dashboard-reindex --config configs/collector.yaml
+```
+
+Production deployment uses `polymarket-dashboard.service`, `polymarket-normalize.timer`, and nginx.
+See [docs/DASHBOARD.md](docs/DASHBOARD.md) for the data flow, API, exact book semantics, and deployment
+behavior.
+
 ## Backtest
 
 ```bash

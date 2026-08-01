@@ -23,7 +23,7 @@ install -d -m 0755 "$release_dir"
 for path in pyproject.toml requirements.lock README.md Makefile Dockerfile docker-compose.yml; do
   cp -a "$project_dir/$path" "$release_dir/$path"
 done
-for path in configs docs src scripts deploy; do
+for path in configs docs src scripts deploy web; do
   cp -a "$project_dir/$path" "$release_dir/$path"
 done
 if git -C "$project_dir" rev-parse HEAD > "$release_dir/.release-commit" 2>/dev/null; then
@@ -48,6 +48,12 @@ fi
 ln -sfn "$release_dir" /opt/polymarket-btc-backtester/current
 install -m 0644 "$project_dir/deploy/systemd/polymarket-collector.service" \
   /etc/systemd/system/polymarket-collector.service
+install -m 0644 "$project_dir/deploy/systemd/polymarket-dashboard.service" \
+  /etc/systemd/system/polymarket-dashboard.service
+install -m 0644 "$project_dir/deploy/systemd/polymarket-normalize.service" \
+  /etc/systemd/system/polymarket-normalize.service
+install -m 0644 "$project_dir/deploy/systemd/polymarket-normalize.timer" \
+  /etc/systemd/system/polymarket-normalize.timer
 if [[ ! -e /etc/polymarket-collector.env ]]; then
   install -m 0640 -o root -g polymarket-data \
     "$project_dir/deploy/systemd/polymarket-collector.env.example" \
@@ -57,11 +63,19 @@ systemctl daemon-reload
 
 if $start_service; then
   systemctl enable polymarket-collector.service
+  systemctl enable polymarket-dashboard.service
+  systemctl enable polymarket-normalize.timer
   if systemctl is-active --quiet polymarket-collector.service; then
     systemctl restart polymarket-collector.service
   else
     systemctl start polymarket-collector.service
   fi
+  if systemctl is-active --quiet polymarket-dashboard.service; then
+    systemctl restart polymarket-dashboard.service
+  else
+    systemctl start polymarket-dashboard.service
+  fi
+  systemctl start polymarket-normalize.timer
 fi
 
 echo "Installed release: $release_dir"

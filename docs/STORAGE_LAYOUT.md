@@ -7,7 +7,7 @@ other representation is reproducible or operational state.
 
 ```text
 data/raw/
-  source=clob_market_ws/date=YYYY-MM-DD/hour=HH/market=<condition>/part-*.jsonl.zst
+  source=clob_market_ws/date=YYYY-MM-DD/hour=HH/part-*.jsonl.zst
   source=rtds/date=YYYY-MM-DD/hour=HH/part-*.jsonl.zst
   source=gamma/date=YYYY-MM-DD/hour=HH/part-*.jsonl.zst
   source=clob_rest/date=YYYY-MM-DD/hour=HH/market=<condition>/part-*.jsonl.zst
@@ -21,6 +21,10 @@ estimated uncompressed, partition/market change, or shutdown; all thresholds are
 
 One event per file is explicitly avoided. A dedicated writer thread batches up to 1,000 envelopes or
 100 ms and performs periodic block flushes. Zstandard level 3 is the reliability-oriented default.
+
+CLOB WebSocket frames can multiplex updates for several subscribed token IDs and therefore remain
+hour/source partitioned; the normalizer resolves each inner token to its condition. REST responses
+have one explicit market and retain the `market=<condition>` partition.
 
 Startup partial recovery never overwrites the damaged input. Decodable newline-complete records are
 published as `recovered-*.jsonl.zst`; the original becomes `.abandoned-<id>` and the recovered
@@ -44,6 +48,8 @@ data/normalized/
   data_quality_events/date=YYYY-MM-DD/hour=HH/part-*.parquet
   market_resolutions/date=YYYY-MM-DD/hour=HH/part-*.parquet
   normalization_runs/part-*.parquet
+  dashboard/markets/<condition_id>.json
+  dashboard-market-index.json
 ```
 
 Files use Zstandard level 6, dictionary encoding, statistics, and 128,000-row groups. Temporary files
@@ -53,6 +59,10 @@ is 64–256 MiB. Short smoke runs naturally produce small files and should be co
 Token ID is deliberately not a top-level partition. BTC source is a partition and also a physical
 field so exact source meaning survives copied files; use `hive_partitioning=false` in DuckDB/Arrow
 when scanning the glob to avoid a partition-column collision.
+
+The dashboard JSON is a derived one-second top-of-book cache, keyed by condition and token. It is
+atomically replaced, safe for concurrent readers, and rebuildable with
+`polymarket-bt dashboard-reindex`. Parquet and raw archives remain authoritative.
 
 ## Compaction
 

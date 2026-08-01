@@ -47,6 +47,18 @@ class MarketRegistry:
                 raw_gamma_payload TEXT NOT NULL,
                 observed_utc_ns INTEGER NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS quarantined_market_latest (
+                gamma_event_id TEXT NOT NULL,
+                gamma_market_id TEXT NOT NULL,
+                score REAL NOT NULL,
+                reason TEXT NOT NULL,
+                decision_json TEXT NOT NULL,
+                raw_gamma_payload TEXT NOT NULL,
+                first_observed_utc_ns INTEGER NOT NULL,
+                last_observed_utc_ns INTEGER NOT NULL,
+                observation_count INTEGER NOT NULL,
+                PRIMARY KEY (gamma_event_id, gamma_market_id, reason)
+            );
             CREATE TABLE IF NOT EXISTS collector_runs (
                 run_id TEXT PRIMARY KEY,
                 previous_run_id TEXT,
@@ -105,12 +117,20 @@ class MarketRegistry:
         gamma_event_id: str = "",
         gamma_market_id: str = "",
     ) -> None:
+        now = utc_now_ns()
         self.connection.execute(
             """
-            INSERT INTO quarantined_markets (
+            INSERT INTO quarantined_market_latest (
                 gamma_event_id, gamma_market_id, score, reason, decision_json,
-                raw_gamma_payload, observed_utc_ns
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                raw_gamma_payload, first_observed_utc_ns, last_observed_utc_ns,
+                observation_count
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
+            ON CONFLICT(gamma_event_id, gamma_market_id, reason) DO UPDATE SET
+                score=excluded.score,
+                decision_json=excluded.decision_json,
+                raw_gamma_payload=excluded.raw_gamma_payload,
+                last_observed_utc_ns=excluded.last_observed_utc_ns,
+                observation_count=quarantined_market_latest.observation_count + 1
             """,
             (
                 gamma_event_id,
@@ -119,7 +139,8 @@ class MarketRegistry:
                 decision.reason,
                 decision.model_dump_json(),
                 raw_payload,
-                utc_now_ns(),
+                now,
+                now,
             ),
         )
         self.connection.commit()

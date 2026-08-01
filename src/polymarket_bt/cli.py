@@ -181,9 +181,43 @@ def status(config: ConfigOption = Path("configs/collector.yaml")) -> None:
 
 
 @app.command()
+def dashboard(
+    config: ConfigOption = Path("configs/collector.yaml"),
+    host: Annotated[str, typer.Option(help="Dashboard bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option(help="Dashboard HTTP port.")] = 9110,
+    index: Annotated[Path, typer.Option(help="Single-file dashboard HTML.")] = Path(
+        "web/index.html"
+    ),
+) -> None:
+    """Serve the read-only market explorer and JSON API."""
+    cfg = _config(config)
+    from polymarket_bt.dashboard.server import run_dashboard
+
+    run_dashboard(
+        storage_root=cfg.storage.root,
+        index_path=index.expanduser().resolve(),
+        host=host,
+        port=port,
+    )
+
+
+@app.command("dashboard-reindex")
+def dashboard_reindex(config: ConfigOption = Path("configs/collector.yaml")) -> None:
+    """Rebuild the fast chart index from normalized top-of-book Parquet."""
+    cfg = _config(config)
+    from polymarket_bt.dashboard.cache import DashboardCacheWriter
+
+    _emit(DashboardCacheWriter(cfg.storage.root).rebuild())
+
+
+@app.command()
 def normalize(
     config: ConfigOption = Path("configs/collector.yaml"),
     date: Annotated[str | None, typer.Option(help="UTC date YYYY-MM-DD.")] = None,
+    max_files: Annotated[
+        int | None,
+        typer.Option(help="Bound one run to this many finalized raw files."),
+    ] = None,
 ) -> None:
     """Idempotently normalize finalized raw archives into Parquet."""
     cfg = _config(config)
@@ -191,7 +225,7 @@ def normalize(
 
     normalizer = Normalizer(cfg)
     try:
-        _emit(normalizer.normalize(date=date))
+        _emit(normalizer.normalize(date=date, max_files=max_files))
     finally:
         normalizer.close()
 

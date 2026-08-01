@@ -261,8 +261,19 @@ class RawArchive:
 
     def _flush_all(self, fsync: bool) -> None:
         with self._lock:
-            for writer in self._writers.values():
-                writer.flush(fsync=fsync)
+            now = utc_now_ns()
+            rotate_ns = self.config.storage.rotate_minutes * 60 * 1_000_000_000
+            maximum_bytes = self.config.storage.rotate_uncompressed_mb * 1024 * 1024
+            for key, writer in list(self._writers.items()):
+                # A partition can become idle permanently at an hour or market
+                # boundary. Finalize it on the timer instead of waiting for one
+                # more event that may never arrive in that old partition.
+                if writer.should_rotate(now, rotate_ns, maximum_bytes):
+                    entry = writer.close()
+                    self.stats.bytes_compressed += entry.compressed_bytes
+                    self._writers.pop(key)
+                else:
+                    writer.flush(fsync=fsync)
 
     async def stop(self, timeout_seconds: float | None = None) -> None:
         self._stopping.set()

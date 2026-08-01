@@ -1,0 +1,25 @@
+[Unit]
+Description=Normalize finalized Polymarket raw archives for the dashboard
+After=polymarket-collector.service
+ConditionPathExists=/var/lib/polymarket-btc-backtester/raw
+
+[Service]
+Type=oneshot
+User=polymarket-data
+Group=polymarket-data
+WorkingDirectory=/opt/polymarket-btc-backtester/current
+EnvironmentFile=-/etc/polymarket-collector.env
+ExecStart=/opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt normalize --config /opt/polymarket-btc-backtester/current/configs/collector.yaml --max-files 4
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/polymarket-btc-backtester
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryMax=2G

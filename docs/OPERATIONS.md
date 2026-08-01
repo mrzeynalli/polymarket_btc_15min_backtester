@@ -77,6 +77,35 @@ Stopping sends SIGTERM. A normal shutdown closes both sockets, drains queues, fi
 frames, hashes/manifests files, checkpoints sequence state, records a clean run, and removes the lock.
 Do not use SIGKILL except when the documented stop timeout has elapsed and the filesystem is stable.
 
+## Dashboard and automatic normalization
+
+```bash
+systemctl status polymarket-dashboard.service
+systemctl status polymarket-normalize.timer
+curl -sS http://127.0.0.1:9110/api/health
+journalctl -u polymarket-dashboard.service -f
+journalctl -u polymarket-normalize.service -f
+```
+
+The normalization timer uses `--max-files 4` so a backlog cannot expand one process without bound.
+If a backlog exists, repeated timer activations advance it idempotently. Rebuild only the disposable
+chart cache with:
+
+```bash
+sudo -u polymarket-data env \
+  POLYMARKET_BT_STORAGE_ROOT=/var/lib/polymarket-btc-backtester \
+  /opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt dashboard-reindex \
+  --config /opt/polymarket-btc-backtester/current/configs/collector.yaml
+```
+
+Install nginx in HTTP-only ACME mode before certificate issuance, then switch to TLS:
+
+```bash
+sudo bash scripts/install_dashboard_nginx.sh --http-only
+sudo certbot certonly --webroot -w /var/www/certbot -d polymarket.cibim.app
+sudo bash scripts/install_dashboard_nginx.sh --tls
+```
+
 ## Health and metrics
 
 The service binds only `127.0.0.1:9108`:

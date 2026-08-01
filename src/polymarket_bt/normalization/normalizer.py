@@ -17,6 +17,7 @@ from polymarket_bt.constants import (
     SHARE_SIZE_SCALE,
     Source,
 )
+from polymarket_bt.dashboard.cache import DashboardCacheWriter
 from polymarket_bt.discovery.btc_market_matcher import Btc15mMarketMatcher
 from polymarket_bt.discovery.market_registry import MarketRegistry
 from polymarket_bt.models.books import BookLevel, BookSnapshot
@@ -47,6 +48,7 @@ class Normalizer:
             self.token_market[market.up_token_id] = market
             self.token_market[market.down_token_id] = market
         self.parser = EventParser(self.token_market.get)
+        self.dashboard_cache = DashboardCacheWriter(config.storage.root)
 
     def close(self) -> None:
         self.registry.close()
@@ -367,7 +369,7 @@ class Normalizer:
             partition = {"source": str(row["source"]), **partition}
         return partition
 
-    def normalize(self, *, date: str | None = None) -> dict[str, Any]:
+    def normalize(self, *, date: str | None = None, max_files: int | None = None) -> dict[str, Any]:
         started = utc_now_ns()
         run_id = str(uuid.uuid4())
         all_entries = self.manifest.entries()
@@ -381,6 +383,10 @@ class Normalizer:
             and (date is None or f"date={date}" in entry.relative_path)
             and not self.state.raw_file_processed(entry.relative_path, entry.sha256)
         ]
+        if max_files is not None:
+            if max_files < 1:
+                raise ValueError("max_files must be positive")
+            raw_entries = raw_entries[:max_files]
         batch_digest = hashlib.sha256(
             "".join(sorted(entry.sha256 for entry in raw_entries)).encode()
         ).hexdigest()
@@ -484,6 +490,7 @@ class Normalizer:
                 if output_entry:
                     output_files.append(output_entry.relative_path)
                     written_rows += output_entry.row_count
+        self.dashboard_cache.update(rows["top_of_book"])
         completed = utc_now_ns()
         normalization_row = {
             "schema_version": SCHEMA_VERSION,

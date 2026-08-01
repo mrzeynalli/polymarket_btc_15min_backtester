@@ -62,6 +62,32 @@ async def test_recover_abandoned_partial(collector_config: CollectorConfig) -> N
     assert list(directory.glob("recovered-*.jsonl.zst"))
 
 
+async def test_idle_partition_is_finalized_without_another_event(
+    collector_config: CollectorConfig,
+) -> None:
+    archive = RawArchive(collector_config, ManifestStore(collector_config.storage.root))
+    await archive.start()
+    assert archive.enqueue(
+        make_raw_envelope(
+            collector_version="test",
+            run_id="run",
+            connection_id="connection",
+            sequence=1,
+            source=Source.CLOB_MARKET_WS,
+            stream="market",
+            payload="{}",
+        )
+    )
+    await archive.queue.join()
+    assert archive._writers
+    for writer in archive._writers.values():
+        writer.created_utc_ns -= 61 * 60 * 1_000_000_000
+    archive._flush_all(False)
+    assert not archive._writers
+    assert not list(collector_config.storage.root.rglob("*.partial"))
+    await archive.stop()
+
+
 def test_bounded_queue_records_exact_drop(collector_config: CollectorConfig) -> None:
     collector_config.queues.raw_max_events = 1
     archive = RawArchive(collector_config, ManifestStore(collector_config.storage.root))
