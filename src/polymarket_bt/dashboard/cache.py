@@ -6,7 +6,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import orjson
 import pyarrow.parquet as pq
@@ -102,7 +102,8 @@ class DashboardCacheWriter:
         try:
             index = orjson.loads(self.index_path.read_bytes())
         except (OSError, orjson.JSONDecodeError):
-            index = {"schema_version": 1, "markets": {}}
+            index = {"schema_version": 2, "markets": {}}
+        index["schema_version"] = 2
         index_markets = index.get("markets")
         if not isinstance(index_markets, dict):
             index_markets = {}
@@ -131,12 +132,28 @@ class DashboardCacheWriter:
                 if isinstance(points, list)
                 for point in points
             ]
+            token_index: dict[str, dict[str, int]] = {}
+            for token_id, points in tokens.items():
+                if not isinstance(points, list):
+                    continue
+                token_times = [
+                    int(cast(int, point["t_ms"]))
+                    for point in points
+                    if isinstance(point, dict) and point.get("t_ms") is not None
+                ]
+                if token_times:
+                    token_index[str(token_id)] = {
+                        "point_count": len(token_times),
+                        "first_received_utc_ns": min(token_times) * 1_000_000,
+                        "last_received_utc_ns": max(token_times) * 1_000_000,
+                    }
             payload["updated_utc_ns"] = utc_now_ns()
             _atomic_json(target, payload)
             index_markets[condition_id] = {
                 "point_count": point_count,
                 "first_received_utc_ns": min(all_times, default=0) * 1_000_000,
                 "last_received_utc_ns": max(all_times, default=0) * 1_000_000,
+                "tokens": token_index,
             }
             total += point_count
         index["updated_utc_ns"] = utc_now_ns()

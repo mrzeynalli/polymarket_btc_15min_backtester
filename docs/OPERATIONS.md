@@ -87,7 +87,10 @@ journalctl -u polymarket-dashboard.service -f
 journalctl -u polymarket-normalize.service -f
 ```
 
-The normalization timer uses `--max-files 4` so a backlog cannot expand one process without bound.
+The normalization timer uses `--max-files 4 --newest-first` so a backlog cannot expand one process
+without bound and new market intervals are published first. For an operator-controlled historical
+catch-up batch, use `polymarket-bt normalize --max-files 4 --oldest-first` repeatedly until it reports
+zero processed raw files.
 If a backlog exists, repeated timer activations advance it idempotently. Rebuild only the disposable
 chart cache with:
 

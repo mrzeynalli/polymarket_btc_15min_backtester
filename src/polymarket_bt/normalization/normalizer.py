@@ -369,7 +369,13 @@ class Normalizer:
             partition = {"source": str(row["source"]), **partition}
         return partition
 
-    def normalize(self, *, date: str | None = None, max_files: int | None = None) -> dict[str, Any]:
+    def normalize(
+        self,
+        *,
+        date: str | None = None,
+        max_files: int | None = None,
+        newest_first: bool = True,
+    ) -> dict[str, Any]:
         started = utc_now_ns()
         run_id = str(uuid.uuid4())
         all_entries = self.manifest.entries()
@@ -388,7 +394,7 @@ class Normalizer:
         # chronological ordering for predictable full-history normalization.
         raw_entries.sort(
             key=lambda entry: (entry.closed_utc_ns, entry.relative_path),
-            reverse=max_files is not None,
+            reverse=max_files is not None and newest_first,
         )
         if max_files is not None:
             if max_files < 1:

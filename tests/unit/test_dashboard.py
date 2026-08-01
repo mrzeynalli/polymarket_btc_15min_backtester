@@ -73,6 +73,26 @@ def test_dashboard_series_and_book_reconstruction(tmp_path: Path, market: Market
             "midpoint_scaled": 480_000,
             "spread_scaled": 20_000,
         },
+        {
+            "condition_id": selected.condition_id,
+            "token_id": selected.up_token_id,
+            "received_utc_ns": start + 895_000_000_000,
+            "sequence": 11,
+            "best_bid_scaled": 510_000,
+            "best_ask_scaled": 530_000,
+            "midpoint_scaled": 520_000,
+            "spread_scaled": 20_000,
+        },
+        {
+            "condition_id": selected.condition_id,
+            "token_id": selected.down_token_id,
+            "received_utc_ns": start + 895_000_000_000,
+            "sequence": 11,
+            "best_bid_scaled": 460_000,
+            "best_ask_scaled": 480_000,
+            "midpoint_scaled": 470_000,
+            "spread_scaled": 20_000,
+        },
     ]
     _write_partition(storage, "top_of_book", top_rows, start)
     cache_result = DashboardCacheWriter(storage).update(top_rows)
@@ -182,7 +202,10 @@ def test_dashboard_series_and_book_reconstruction(tmp_path: Path, market: Market
     dashboard = DashboardData(storage)
     listing = dashboard.markets(limit=10)
     assert listing["ready_count"] == 1
+    assert listing["partial_count"] == 0
     series = dashboard.series(selected.market_slug)
+    assert series["coverage"]["state"] == "ready"
+    assert series["coverage"]["coverage_bps"] > 9_800
     assert series["series"]["UP"][0]["mid"] == 510_000
     assert series["series"]["DOWN"][0]["mid"] == 480_000
     assert series["btc"]["BINANCE_BTCUSDT"][0]["price"] == 67_000_000_000_000_000
@@ -196,3 +219,61 @@ def test_dashboard_series_and_book_reconstruction(tmp_path: Path, market: Market
     trade_payload = dashboard.trades(selected.market_slug)
     assert trade_payload["trades"][0]["price"] == 520_000
     assert trade_payload["totals"]["UP"]["count"] == 1
+
+
+def test_dashboard_distinguishes_partial_and_preopen_only_data(
+    tmp_path: Path, market: MarketRecord
+) -> None:
+    storage = tmp_path / "data"
+    partial = _historical_market(market).model_copy(
+        update={
+            "condition_id": "partial-condition",
+            "market_slug": "btc-updown-15m-partial",
+            "up_token_id": "partial-up",
+            "down_token_id": "partial-down",
+        }
+    )
+    pending = partial.model_copy(
+        update={
+            "condition_id": "pending-condition",
+            "market_slug": "btc-updown-15m-pending",
+            "up_token_id": "pending-up",
+            "down_token_id": "pending-down",
+        }
+    )
+    registry = MarketRegistry(storage / "state" / "market-registry.sqlite")
+    registry.upsert(partial, "{}")
+    registry.upsert(pending, "{}")
+    registry.close()
+
+    def point(condition_id: str, token_id: str, received_ns: int) -> dict[str, object]:
+        return {
+            "condition_id": condition_id,
+            "token_id": token_id,
+            "received_utc_ns": received_ns,
+            "sequence": 1,
+            "best_bid_scaled": 490_000,
+            "best_ask_scaled": 510_000,
+            "midpoint_scaled": 500_000,
+            "spread_scaled": 20_000,
+        }
+
+    start = partial.market_start_utc_ns
+    DashboardCacheWriter(storage).update(
+        [
+            point(partial.condition_id, partial.up_token_id, start + 300_000_000_000),
+            point(partial.condition_id, partial.down_token_id, start + 300_000_000_000),
+            point(pending.condition_id, pending.up_token_id, start - 120_000_000_000),
+            point(pending.condition_id, pending.down_token_id, start - 120_000_000_000),
+        ]
+    )
+
+    dashboard = DashboardData(storage)
+    listing = dashboard.markets(limit=10)
+    statuses = {item["slug"]: item["data_status"] for item in listing["markets"]}
+    assert statuses[partial.market_slug] == "partial"
+    assert statuses[pending.market_slug] == "pending"
+    assert listing["partial_count"] == 1
+    assert listing["pending_count"] == 1
+    assert dashboard.series(partial.market_slug)["coverage"]["state"] == "partial"
+    assert dashboard.series(pending.market_slug)["coverage"]["state"] == "pending_normalization"

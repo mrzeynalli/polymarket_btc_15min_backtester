@@ -218,6 +218,13 @@ def normalize(
         int | None,
         typer.Option(help="Bound one run to this many finalized raw files."),
     ] = None,
+    newest_first: Annotated[
+        bool,
+        typer.Option(
+            "--newest-first/--oldest-first",
+            help="Prioritize fresh dashboard data or drain the oldest backlog first.",
+        ),
+    ] = True,
 ) -> None:
     """Idempotently normalize finalized raw archives into Parquet."""
     cfg = _config(config)
@@ -225,7 +232,13 @@ def normalize(
 
     normalizer = Normalizer(cfg)
     try:
-        _emit(normalizer.normalize(date=date, max_files=max_files))
+        _emit(
+            normalizer.normalize(
+                date=date,
+                max_files=max_files,
+                newest_first=newest_first,
+            )
+        )
     finally:
         normalizer.close()
 

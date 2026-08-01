@@ -110,8 +110,20 @@ class _PartitionWriter:
             os.fsync(self._raw.fileno())
 
     def should_rotate(self, now_ns: int, rotate_ns: int, max_uncompressed: int) -> bool:
+        boundary_reached = (
+            self.maximum_event_time is not None
+            and now_ns // rotate_ns > self.maximum_event_time // rotate_ns
+        )
         return (
-            now_ns - self.created_utc_ns >= rotate_ns or self.uncompressed_bytes >= max_uncompressed
+            boundary_reached
+            or now_ns - self.created_utc_ns >= rotate_ns
+            or self.uncompressed_bytes >= max_uncompressed
+        )
+
+    def crosses_rotation_boundary(self, event_ns: int, rotate_ns: int) -> bool:
+        return (
+            self.maximum_event_time is not None
+            and event_ns // rotate_ns > self.maximum_event_time // rotate_ns
         )
 
     def close(self, *, quality_status: str = "complete") -> ManifestEntry:
@@ -238,6 +250,8 @@ class RawArchive:
 
     def _write_batch(self, batch: list[RawEnvelope]) -> None:
         with self._lock:
+            rotate_ns = self.config.storage.rotate_minutes * 60 * 1_000_000_000
+            maximum_bytes = self.config.storage.rotate_uncompressed_mb * 1024 * 1024
             for envelope in batch:
                 partition = self._partition_for(envelope)
                 key = partition.as_posix()
@@ -245,13 +259,18 @@ class RawArchive:
                 if writer is None:
                     writer = self._new_writer(partition)
                     self._writers[key] = writer
+                elif writer.crosses_rotation_boundary(envelope.received_utc_ns, rotate_ns):
+                    entry = writer.close()
+                    self.stats.bytes_compressed += entry.compressed_bytes
+                    writer = self._new_writer(partition)
+                    self._writers[key] = writer
                 writer.write(envelope)
                 self.stats.bytes_uncompressed += len(envelope.json_line())
                 now = utc_now_ns()
                 if writer.should_rotate(
                     now,
-                    self.config.storage.rotate_minutes * 60 * 1_000_000_000,
-                    self.config.storage.rotate_uncompressed_mb * 1024 * 1024,
+                    rotate_ns,
+                    maximum_bytes,
                 ):
                     entry = writer.close()
                     self.stats.bytes_compressed += entry.compressed_bytes

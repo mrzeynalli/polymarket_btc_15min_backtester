@@ -174,6 +174,18 @@ async def test_bounded_normalization_prioritizes_newest_raw_file(
     finally:
         state.close()
 
+    normalizer = Normalizer(collector_config)
+    try:
+        oldest_result = normalizer.normalize(max_files=1, newest_first=False)
+    finally:
+        normalizer.close()
+    assert oldest_result["raw_files_processed"] == 1
+    state = OperationalState(collector_config.storage.root / "state" / "normalization.sqlite")
+    try:
+        assert state.raw_file_processed(raw_entries[0].relative_path, raw_entries[0].sha256)
+    finally:
+        state.close()
+
 
 def test_compaction_validates_rows_and_retains_originals(
     collector_config: CollectorConfig,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+from datetime import UTC, datetime
 
 import zstandard
 
@@ -86,6 +87,34 @@ async def test_idle_partition_is_finalized_without_another_event(
     assert not archive._writers
     assert not list(collector_config.storage.root.rglob("*.partial"))
     await archive.stop()
+
+
+async def test_raw_archive_aligns_rotation_to_fifteen_minute_boundary(
+    collector_config: CollectorConfig,
+) -> None:
+    manifest = ManifestStore(collector_config.storage.root)
+    archive = RawArchive(collector_config, manifest)
+    await archive.start()
+    before_ns = int(datetime(2026, 7, 31, 20, 14, 59, tzinfo=UTC).timestamp() * 1_000_000_000)
+    after_ns = int(datetime(2026, 7, 31, 20, 15, 0, tzinfo=UTC).timestamp() * 1_000_000_000)
+    base = make_raw_envelope(
+        collector_version="test",
+        run_id="run",
+        connection_id="connection",
+        sequence=1,
+        source=Source.CLOB_MARKET_WS,
+        stream="market",
+        payload="{}",
+    )
+    assert archive.enqueue(base.model_copy(update={"received_utc_ns": before_ns}))
+    assert archive.enqueue(base.model_copy(update={"sequence": 2, "received_utc_ns": after_ns}))
+    await archive.stop()
+
+    entries = sorted(manifest.entries(), key=lambda entry: entry.minimum_event_time or 0)
+    assert len(entries) == 2
+    assert [entry.row_count for entry in entries] == [1, 1]
+    assert entries[0].maximum_event_time == before_ns
+    assert entries[1].minimum_event_time == after_ns
 
 
 def test_bounded_queue_records_exact_drop(collector_config: CollectorConfig) -> None:

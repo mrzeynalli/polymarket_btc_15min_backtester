@@ -3,8 +3,8 @@ Description=Refresh Polymarket dashboard datasets after raw-file rotation
 
 [Timer]
 OnBootSec=90s
-OnUnitInactiveSec=2min
-RandomizedDelaySec=15s
+OnUnitInactiveSec=45s
+RandomizedDelaySec=10s
 Persistent=true
 AccuracySec=10s
 Unit=polymarket-normalize.service

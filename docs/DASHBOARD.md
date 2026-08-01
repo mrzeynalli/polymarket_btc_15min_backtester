@@ -23,7 +23,7 @@ executable fill price.
 ```mermaid
 flowchart LR
   C[Collector] --> R[Zstd raw archive]
-  R -->|2-minute bounded timer| N[Idempotent normalizer]
+  R -->|sub-minute bounded timer| N[Idempotent normalizer]
   N --> P[Parquet source datasets]
   N --> I[1-second dashboard chart cache]
   G[Market registry] --> A[Read-only dashboard API]
@@ -57,13 +57,18 @@ keeps the visible book fresh before the active raw segment is finalized. It is c
 
 ## Automatic refresh
 
-`polymarket-normalize.timer` runs a bounded four-file normalization batch roughly every two minutes.
+`polymarket-normalize.timer` runs a bounded four-file normalization batch roughly every 45–55 seconds.
 This bounds memory while catching up safely. Bounded runs prioritize the newest finalized archives,
 so a completed 15-minute slug is published before older backlog; spare cycles continue working
 backward. Raw partitions finalize at size/time thresholds even if an old hour receives no subsequent
 event. The website reads the registry on every list refresh, so a new slug appears when it starts
 recording; its completed chart becomes available as soon as its raw segment finalizes and the timer
 processes it.
+
+Raw writers rotate on wall-clock 15-minute boundaries. Consequently, the just-ended market's final
+WebSocket segment becomes eligible for normalization immediately instead of waiting for a
+process-relative rotation deadline. Completed markets with incomplete normalized coverage are
+labeled `partial` or `pending`, never `ready`.
 
 ## Local operation
 

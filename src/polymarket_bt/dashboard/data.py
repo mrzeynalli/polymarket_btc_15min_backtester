@@ -7,7 +7,7 @@ import time
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import duckdb
 import httpx
@@ -20,6 +20,8 @@ from polymarket_bt.constants import (
 )
 from polymarket_bt.dashboard.cache import series_path
 from polymarket_bt.models.markets import MarketRecord
+
+COVERAGE_EDGE_TOLERANCE_NS = 60 * 1_000_000_000
 
 
 def _quote_path(path: Path) -> str:
@@ -102,13 +104,50 @@ class DashboardData:
         root = self.normalized_root / "top_of_book"
         return sorted(root.rglob("*.parquet")) if root.exists() else []
 
-    def available_conditions(self) -> set[str]:
+    def _dashboard_index(self) -> dict[str, Any]:
         try:
             payload = json.loads(self.dashboard_index_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
-            return set()
+            return {}
         markets = payload.get("markets", {})
-        return set(markets) if isinstance(markets, dict) else set()
+        return markets if isinstance(markets, dict) else {}
+
+    @staticmethod
+    def _market_data_status(market: MarketRecord, state: str, index_entry: object) -> str:
+        if state == "upcoming":
+            return "pending"
+        if state == "recording":
+            return "recording"
+        if not isinstance(index_entry, dict):
+            return "pending"
+        token_index = index_entry.get("tokens")
+        if not isinstance(token_index, dict):
+            # Schema-v1 indexes did not carry per-token coverage and must not
+            # make a partially normalized market look complete.
+            return "partial"
+
+        summaries: list[dict[str, Any]] = []
+        for token_id in (market.up_token_id, market.down_token_id):
+            summary = token_index.get(token_id)
+            if isinstance(summary, dict):
+                summaries.append(summary)
+        if len(summaries) != 2:
+            return "partial" if summaries else "pending"
+
+        first_times = [int(summary.get("first_received_utc_ns") or 0) for summary in summaries]
+        last_times = [int(summary.get("last_received_utc_ns") or 0) for summary in summaries]
+        overlaps = [
+            last_time >= market.market_start_utc_ns and first_time <= market.market_end_utc_ns
+            for first_time, last_time in zip(first_times, last_times, strict=True)
+        ]
+        if not any(overlaps):
+            return "pending"
+        complete_edges = all(
+            first_time <= market.market_start_utc_ns + COVERAGE_EDGE_TOLERANCE_NS
+            and last_time >= market.market_end_utc_ns - COVERAGE_EDGE_TOLERANCE_NS
+            for first_time, last_time in zip(first_times, last_times, strict=True)
+        )
+        return "ready" if complete_edges else "partial"
 
     def markets(self, *, limit: int = 500) -> dict[str, Any]:
         limit = max(1, min(limit, 2_000))
@@ -117,12 +156,15 @@ class DashboardData:
                 "SELECT market_json FROM markets ORDER BY market_start_utc_ns DESC LIMIT ?",
                 (limit,),
             ).fetchall()
-        available = self.available_conditions()
+        dashboard_index = self._dashboard_index()
         now = utc_now_ns()
         markets: list[dict[str, Any]] = []
         for row in rows:
             market = MarketRecord.model_validate_json(row["market_json"])
             state = _status(market, now)
+            data_status = self._market_data_status(
+                market, state, dashboard_index.get(market.condition_id)
+            )
             markets.append(
                 {
                     "slug": market.market_slug,
@@ -135,13 +177,7 @@ class DashboardData:
                         2,
                     ),
                     "status": state,
-                    "data_status": (
-                        "ready"
-                        if market.condition_id in available
-                        else "recording"
-                        if state == "recording"
-                        else "pending"
-                    ),
+                    "data_status": data_status,
                     "up_token_id": market.up_token_id,
                     "down_token_id": market.down_token_id,
                     "winning_outcome": market.winning_outcome,
@@ -152,6 +188,8 @@ class DashboardData:
             "generated_at_ms": now // 1_000_000,
             "count": len(markets),
             "ready_count": sum(item["data_status"] == "ready" for item in markets),
+            "partial_count": sum(item["data_status"] == "partial" for item in markets),
+            "pending_count": sum(item["data_status"] == "pending" for item in markets),
             "markets": markets,
         }
 
@@ -263,12 +301,71 @@ class DashboardData:
             for source, values in buckets.items()
         }
 
+    @staticmethod
+    def _series_coverage(
+        market: MarketRecord,
+        state: str,
+        series: dict[str, list[dict[str, int | None]]],
+    ) -> dict[str, int | str | None]:
+        outcome_times = {
+            outcome: [
+                int(cast(int, point["t_ms"]))
+                for point in series.get(outcome, [])
+                if point.get("t_ms") is not None
+            ]
+            for outcome in ("UP", "DOWN")
+        }
+        all_times = [value for values in outcome_times.values() for value in values]
+        first_ms = min(all_times, default=None)
+        last_ms = max(all_times, default=None)
+        common_first_ms: int | None = None
+        common_last_ms: int | None = None
+        if all(outcome_times.values()):
+            common_first_ms = max(min(values) for values in outcome_times.values())
+            common_last_ms = min(max(values) for values in outcome_times.values())
+
+        start_ms = market.market_start_utc_ns // 1_000_000
+        end_ms = market.market_end_utc_ns // 1_000_000
+        expected_ms = max(1, end_ms - start_ms)
+        covered_ms = (
+            max(0, min(common_last_ms, end_ms) - max(common_first_ms, start_ms))
+            if common_first_ms is not None and common_last_ms is not None
+            else 0
+        )
+        if state == "recording":
+            coverage_state = "recording"
+        elif not all_times:
+            coverage_state = "pending_normalization"
+        else:
+            tolerance_ms = COVERAGE_EDGE_TOLERANCE_NS // 1_000_000
+            complete_edges = (
+                common_first_ms is not None
+                and common_last_ms is not None
+                and common_first_ms <= start_ms + tolerance_ms
+                and common_last_ms >= end_ms - tolerance_ms
+            )
+            coverage_state = "ready" if complete_edges else "partial"
+        return {
+            "first_ms": first_ms,
+            "last_ms": last_ms,
+            "up_first_ms": min(outcome_times["UP"], default=None),
+            "up_last_ms": max(outcome_times["UP"], default=None),
+            "down_first_ms": min(outcome_times["DOWN"], default=None),
+            "down_last_ms": max(outcome_times["DOWN"], default=None),
+            "up_points": len(series.get("UP", [])),
+            "down_points": len(series.get("DOWN", [])),
+            "covered_ms": covered_ms,
+            "expected_ms": expected_ms,
+            "coverage_bps": min(10_000, covered_ms * 10_000 // expected_ms),
+            "state": coverage_state,
+        }
+
     def series(self, slug: str, *, max_points: int = 900) -> dict[str, Any]:
         max_points = max(120, min(max_points, 2_000))
         market = self.market_by_slug(slug)
         state = _status(market, utc_now_ns())
-        ttl = 4.0 if state == "recording" else 60.0
-        cache_key = f"series:{slug}:{max_points}"
+        ttl = 4.0 if state == "recording" else 10.0
+        cache_key = f"series:{state}:{slug}:{max_points}"
         cached = self._cache.get(cache_key, ttl)
         if cached is not None:
             return cached
@@ -356,12 +453,8 @@ class DashboardData:
                         }
                     )
 
-        chart_times = [
-            int(point["t_ms"])
-            for points in series.values()
-            for point in points
-            if point["t_ms"] is not None
-        ]
+        coverage = self._series_coverage(market, state, series)
+        coverage["normalized_files"] = len(top_files)
         payload = {
             "generated_at_ms": utc_now_ns() // 1_000_000,
             "market": self.market_payload(market),
@@ -372,20 +465,7 @@ class DashboardData:
             },
             "series": series,
             "btc": self._downsample_btc(btc_rows, start_ns, end_ns, max_points),
-            "coverage": {
-                "first_ms": min(chart_times, default=None),
-                "last_ms": max(chart_times, default=None),
-                "up_points": len(series["UP"]),
-                "down_points": len(series["DOWN"]),
-                "normalized_files": len(top_files),
-                "state": (
-                    "ready"
-                    if top_rows or cached_series
-                    else "live_only"
-                    if live_book
-                    else "pending_normalization"
-                ),
-            },
+            "coverage": coverage,
         }
         self._cache.put(cache_key, payload)
         return payload

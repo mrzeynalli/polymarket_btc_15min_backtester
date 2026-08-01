@@ -144,11 +144,12 @@
     .market-item .state-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
     .market-item .state-dot.recording { background: var(--up); box-shadow: 0 0 9px rgba(49,230,161,.7); }
     .market-item .state-dot.upcoming { background: var(--blue); }
-    .market-item .state-dot.pending { background: var(--amber); }
+    .market-item .state-dot.pending, .market-item .state-dot.partial { background: var(--amber); }
     .market-time { display: block; color: var(--text); font-size: 12px; font-weight: 660; }
     .market-date { display: block; color: var(--faint); font-size: 10px; margin-top: 1px; }
     .data-mark { font-size: 9px; color: var(--faint); font-family: var(--mono); }
     .data-mark.ready { color: var(--up); }
+    .data-mark.partial { color: var(--amber); }
 
     .main { min-width: 0; padding: 25px clamp(18px, 3vw, 42px) 70px; }
     .market-head { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 24px; align-items: start; margin-bottom: 22px; }
@@ -519,6 +520,12 @@
       return latest(points);
     }
     function statusLabel(value) { return value ? value.charAt(0).toUpperCase() + value.slice(1).replaceAll('_', ' ') : '—'; }
+    function dataLabel(market) {
+      if (market.status === 'recording') return 'LIVE';
+      if (market.data_status === 'ready') return 'DATA';
+      if (market.data_status === 'partial') return 'PART';
+      return 'WAIT';
+    }
 
     function groupedMarkets(markets) {
       const groups = new Map();
@@ -538,7 +545,7 @@
         const label = document.createElement('div'); label.className = 'day-label'; label.textContent = dateLabel(Date.parse(day + 'T00:00:00Z')); list.append(label);
         for (const market of markets) {
           const button = document.createElement('button'); button.className = `market-item ${state.selected?.slug === market.slug ? 'active' : ''}`;
-          button.innerHTML = `<span class="state-dot ${market.status === 'recording' ? 'recording' : market.status === 'upcoming' ? 'upcoming' : market.data_status === 'pending' ? 'pending' : ''}"></span><span><span class="market-time">${timeLabel(market.start_ms, false)}–${timeLabel(market.end_ms, false)}</span><span class="market-date">${market.slug.replace('btc-updown-15m-', '#')}</span></span><span class="data-mark ${market.data_status}">${market.data_status === 'ready' ? 'DATA' : market.status === 'recording' ? 'LIVE' : 'WAIT'}</span>`;
+          button.innerHTML = `<span class="state-dot ${market.status === 'recording' ? 'recording' : market.status === 'upcoming' ? 'upcoming' : market.data_status}"></span><span><span class="market-time">${timeLabel(market.start_ms, false)}–${timeLabel(market.end_ms, false)}</span><span class="market-date">${market.slug.replace('btc-updown-15m-', '#')}</span></span><span class="data-mark ${market.data_status}">${dataLabel(market)}</span>`;
           button.addEventListener('click', () => selectMarket(market.slug)); list.append(button);
         }
       }
@@ -551,15 +558,27 @@
 
     async function loadMarkets(initial = false) {
       try {
+        const previous = state.selected;
         const payload = await api('/api/markets?limit=1000');
-        state.markets = payload.markets.filter(market =>
-          market.status === 'recording' || (market.data_status === 'ready' && market.status !== 'upcoming')
-        );
+        const wanted = new URLSearchParams(location.search).get('market');
+        state.markets = payload.markets.filter(market => {
+          if (market.status === 'upcoming') return false;
+          if (market.status === 'recording' || ['ready', 'partial'].includes(market.data_status)) return true;
+          return market.status === 'complete' && Date.now() - market.end_ms < 60 * 60 * 1000;
+        });
+        const requested = payload.markets.find(market => market.slug === (previous?.slug || wanted));
+        if (requested && requested.status !== 'upcoming' && !state.markets.some(market => market.slug === requested.slug)) {
+          state.markets.push(requested); state.markets.sort((a, b) => b.start_ms - a.start_ms);
+        }
+        const selectionChanged = previous && requested &&
+          (previous.status !== requested.status || previous.data_status !== requested.data_status);
+        if (previous && requested) state.selected = requested;
         renderMarketList();
         if (initial && !state.selected) {
-          const wanted = new URLSearchParams(location.search).get('market');
           const first = state.markets.find(m => m.slug === wanted) || state.markets.find(m => m.status === 'recording') || state.markets.find(m => m.data_status === 'ready') || state.markets[0];
           if (first) await selectMarket(first.slug);
+        } else if (selectionChanged && requested) {
+          await selectMarket(requested.slug, true);
         }
       } catch (error) { toast(`Market list unavailable: ${error.message}`); }
     }
@@ -579,9 +598,10 @@
       if (target) await selectMarket(target.slug);
     }
 
-    async function selectMarket(slug) {
+    async function selectMarket(slug, preserveSeries = false) {
       const market = state.markets.find(item => item.slug === slug);
       if (!market) return;
+      const carriedSeries = preserveSeries && state.selected?.slug === slug ? state.series : null;
       const request = ++state.requestId; state.selected = market; state.cursorMs = null; setLoading(true); renderMarketList();
       history.replaceState({}, '', `${location.pathname}?market=${encodeURIComponent(slug)}`);
       $('marketEyebrow').textContent = `${dateLabel(market.start_ms)} · ${timeLabel(market.start_ms, false)}–${timeLabel(market.end_ms, false)} local time`;
@@ -596,13 +616,18 @@
           api(`/api/markets/${encodeURIComponent(slug)}/trades?limit=250`).catch(() => ({trades: [], totals: {}})),
         ]);
         if (request !== state.requestId) return;
-        state.series = series; state.trades = trades;
-        const upQuote = latestQuoted(series.series.UP), downQuote = latestQuoted(series.series.DOWN);
-        const target = market.status === 'recording'
+        state.series = carriedSeries ? mergeLiveSeries(carriedSeries, series) : series; state.trades = trades;
+        const coverageStatus = state.series.coverage.state === 'pending_normalization' ? 'pending' : state.series.coverage.state;
+        const updatedMarket = { ...market, status: state.series.market.status, data_status: coverageStatus };
+        state.selected = updatedMarket;
+        state.markets = state.markets.map(item => item.slug === slug ? updatedMarket : item);
+        renderMarketList();
+        const upQuote = latestQuoted(state.series.series.UP), downQuote = latestQuoted(state.series.series.DOWN);
+        const target = updatedMarket.status === 'recording'
           ? Math.min(Date.now(), market.end_ms)
           : Math.min(market.end_ms, upQuote?.t_ms ?? market.end_ms, downQuote?.t_ms ?? market.end_ms);
         state.cursorMs = target; $('timeCursor').value = target;
-        renderAll(); await loadBook(market.status === 'recording' ? null : target, request);
+        renderAll(); await loadBook(updatedMarket.status === 'recording' ? null : target, request);
         setupLiveRefresh();
       } catch (error) {
         if (request === state.requestId) { state.series = null; renderAll(); toast(`Could not load ${slug}: ${error.message}`); }
@@ -611,17 +636,33 @@
 
     function setupLiveRefresh() {
       clearInterval(state.liveTimer);
-      if (state.selected?.status === 'recording') {
+      const recording = state.selected?.status === 'recording';
+      const finalizing = state.selected && !['recording', 'upcoming'].includes(state.selected.status) &&
+        state.selected.data_status !== 'ready' && Date.now() - state.selected.end_ms < 2 * 60 * 60 * 1000;
+      if (recording || finalizing) {
         state.liveTimer = setInterval(async () => {
           if (!state.selected || document.hidden) return;
           try {
             const slug = state.selected.slug;
             const series = await api(`/api/markets/${encodeURIComponent(slug)}/series?max_points=900`);
             if (state.selected?.slug !== slug) return;
+            if (series.market.status !== state.selected.status) {
+              state.series = mergeLiveSeries(state.series, series);
+              clearInterval(state.liveTimer);
+              await loadMarkets(false);
+              return;
+            }
             state.series = mergeLiveSeries(state.series, series); renderSummary(); drawCharts();
-            if (state.cursorMs == null || Math.abs(state.cursorMs - Date.now()) < 20000) await loadBook(null, state.requestId);
+            const dataStatus = series.coverage.state === 'pending_normalization' ? 'pending' : series.coverage.state;
+            if (dataStatus !== state.selected.data_status) {
+              state.selected = { ...state.selected, data_status: dataStatus };
+              state.markets = state.markets.map(item => item.slug === slug ? state.selected : item);
+              renderMarketList();
+              if (dataStatus === 'ready') clearInterval(state.liveTimer);
+            }
+            if (state.selected.status === 'recording' && (state.cursorMs == null || Math.abs(state.cursorMs - Date.now()) < 20000)) await loadBook(null, state.requestId);
           } catch { /* transient live refresh errors leave the last good view */ }
-        }, 8000);
+        }, recording ? 8000 : 15000);
       }
     }
 
@@ -754,7 +795,7 @@
       $('marketSearch').addEventListener('input',renderMarketList);$('mobileMarketSelect').addEventListener('change',e=>selectMarket(e.target.value));$('previousMarket').addEventListener('click',()=>moveMarket(-1));$('nextMarket').addEventListener('click',()=>moveMarket(1));
       $('copySlug').addEventListener('click',async()=>{if(!state.selected)return;await navigator.clipboard.writeText(state.selected.slug);toast('Market slug copied')});$('showBands').addEventListener('change',drawCharts);$('jumpLatest').addEventListener('click',jumpLatest);$('timeCursor').addEventListener('input',cursorInput);
       $('priceChart').addEventListener('pointermove',showTooltip);$('priceChart').addEventListener('pointerleave',hideTooltip);$('priceChart').addEventListener('click',selectChartTime);
-      new ResizeObserver(drawCharts).observe($('priceChartWrap'));document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.selected?.status==='recording')setupLiveRefresh()});
+      new ResizeObserver(drawCharts).observe($('priceChartWrap'));document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.selected)setupLiveRefresh()});
     }
 
     async function init(){
