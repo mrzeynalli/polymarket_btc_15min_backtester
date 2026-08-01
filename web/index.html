@@ -552,7 +552,9 @@
     async function loadMarkets(initial = false) {
       try {
         const payload = await api('/api/markets?limit=1000');
-        state.markets = payload.markets.filter(market => market.data_status === 'ready' || market.status === 'recording');
+        state.markets = payload.markets.filter(market =>
+          market.status === 'recording' || (market.data_status === 'ready' && market.status !== 'upcoming')
+        );
         renderMarketList();
         if (initial && !state.selected) {
           const wanted = new URLSearchParams(location.search).get('market');
