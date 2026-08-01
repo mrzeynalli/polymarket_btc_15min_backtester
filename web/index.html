@@ -542,7 +542,7 @@
           button.addEventListener('click', () => selectMarket(market.slug)); list.append(button);
         }
       }
-      $('marketCount').textContent = `${state.filtered.length}/${state.markets.length}`;
+      $('marketCount').textContent = query ? `${state.filtered.length}/${state.markets.length}` : state.markets.length;
       const select = $('mobileMarketSelect'); select.replaceChildren();
       for (const market of state.markets) {
         const option = document.createElement('option'); option.value = market.slug; option.textContent = `${dateLabel(market.start_ms)} · ${timeLabel(market.start_ms, false)}–${timeLabel(market.end_ms, false)} · ${statusLabel(market.status)}`; option.selected = state.selected?.slug === market.slug; select.append(option);
@@ -552,7 +552,7 @@
     async function loadMarkets(initial = false) {
       try {
         const payload = await api('/api/markets?limit=1000');
-        state.markets = payload.markets;
+        state.markets = payload.markets.filter(market => market.data_status === 'ready' || market.status === 'recording');
         renderMarketList();
         if (initial && !state.selected) {
           const wanted = new URLSearchParams(location.search).get('market');
