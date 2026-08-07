@@ -20,7 +20,9 @@ async def test_raw_to_parquet_pipeline(
     await archive.start()
     sequence = itertools.count(1)
 
-    def enqueue(source: Source, path: Path, hint: str | None = None) -> None:
+    def enqueue(
+        source: Source, path: Path, hint: str | None = None, token_id: str | None = None
+    ) -> None:
         assert archive.enqueue(
             make_raw_envelope(
                 collector_version="test",
@@ -36,10 +38,23 @@ async def test_raw_to_parquet_pipeline(
                     if source in {Source.CLOB_MARKET_WS, Source.CLOB_REST}
                     else None
                 ),
+                token_id=token_id,
             )
         )
 
     enqueue(Source.GAMMA, fixture_root / "gamma" / "current_btc_15m.json", "gamma_response")
+    enqueue(Source.CLOB_REST, fixture_root / "clob" / "market_info.json", "clob_market_info")
+    enqueue(
+        Source.CLOB_REST,
+        fixture_root / "clob" / "market_details.json",
+        "clob_market_details",
+    )
+    enqueue(
+        Source.CLOB_REST,
+        fixture_root / "clob" / "rest_book.json",
+        "book",
+        token_id="34514733905773960524951981626001763630472774201069326821853681208375806114523",
+    )
     enqueue(Source.CLOB_MARKET_WS, fixture_root / "clob" / "ws_book.json")
     enqueue(Source.CLOB_MARKET_WS, fixture_root / "clob" / "tick_size_change.json")
     enqueue(Source.CLOB_MARKET_WS, fixture_root / "clob" / "price_change.json")
@@ -71,6 +86,10 @@ async def test_raw_to_parquet_pipeline(
             "SELECT count(*) FROM read_parquet(?)",
             [str(normalized / "book_snapshots" / "**" / "*.parquet")],
         ).fetchone()[0]
+        top_of_book = connection.execute(
+            "SELECT best_bid_scaled, best_ask_scaled FROM read_parquet(?) ORDER BY received_utc_ns",
+            [str(normalized / "top_of_book" / "**" / "*.parquet")],
+        ).fetchall()
         price_sources = connection.execute(
             "SELECT source, count(*) FROM read_parquet(?) GROUP BY source ORDER BY source",
             [str(normalized / "btc_prices" / "**" / "*.parquet")],
@@ -79,10 +98,21 @@ async def test_raw_to_parquet_pipeline(
             "SELECT count(*) FROM read_parquet(?)",
             [str(normalized / "tick_size_changes" / "**" / "*.parquet")],
         ).fetchone()[0]
+        metadata = connection.execute(
+            "SELECT source, fee_rate, fee_exponent, taker_order_delay_ms "
+            "FROM read_parquet(?) ORDER BY source",
+            [str(normalized / "market_execution_metadata" / "**" / "*.parquet")],
+        ).fetchall()
     finally:
         connection.close()
-    assert book_count == 1
+    assert book_count == 2
+    assert top_of_book == [(320000, 330000)] * 3
     assert tick_count == 1
+    assert metadata == [
+        ("clob_rest_market", None, None, 0),
+        ("clob_rest_market_info", "0.07", 1, None),
+        ("gamma", "0.07", 1, None),
+    ]
     assert price_sources == [("BINANCE_BTCUSDT", 1), ("CHAINLINK_BTCUSD", 1)]
     assert manifest.verify()["ok"]
 

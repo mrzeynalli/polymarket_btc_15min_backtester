@@ -32,6 +32,7 @@ class ClobConfig(StrictModel):
     max_missed_heartbeats: int = 3
     custom_feature_enabled: bool = True
     validation_snapshot_seconds: float = 30
+    market_metadata_refresh_seconds: float = Field(default=30, gt=0)
     request_timeout_seconds: float = 10
 
 

@@ -37,10 +37,10 @@ class TakerExecutionSimulator:
             return OrderResult(
                 intent=intent, status="rejected", rejection_reason="size or notional required"
             )
-        if intent.side == Side.BUY:
-            levels = list(book.asks.items())
-        else:
-            levels = list(reversed(book.bids.items()))
+        # Depth already taken by earlier simulated fills is excluded, but the
+        # reconstructed book itself is left untouched so the recorded feed stays
+        # authoritative for later updates.
+        levels = book.available_levels("SELL" if intent.side == Side.BUY else "BUY")
         shares_remaining = intent.requested_shares_scaled
         notional_remaining = intent.requested_notional_scaled
         planned: list[tuple[int, int, int, int, int]] = []
@@ -119,11 +119,7 @@ class TakerExecutionSimulator:
             )
             portfolio.apply_fill(fill, outcome=intent.outcome)
             fills.append(fill)
-            side = book.asks if intent.side == Side.BUY else book.bids
-            if displayed_after:
-                side[price] = displayed_after
-            else:
-                side.pop(price, None)
+            book.consume("SELL" if intent.side == Side.BUY else "BUY", price, desired)
         if not fills:
             return OrderResult(
                 intent=intent,

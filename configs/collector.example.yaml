@@ -21,6 +21,7 @@ clob:
   max_missed_heartbeats: 3
   custom_feature_enabled: true
   validation_snapshot_seconds: 30
+  market_metadata_refresh_seconds: 30
   request_timeout_seconds: 10
 
 rtds:

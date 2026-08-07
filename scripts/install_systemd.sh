@@ -51,6 +51,11 @@ for path in raw normalized manifests state reports quarantine; do
   install -d -m 0750 -o polymarket-data -g polymarket-data "$data_root/$path"
 done
 
+# The backtest workspace is derived data and must sit outside the collector's
+# storage root, so recorded archives are never written by a backtest.
+backtest_workspace="/var/lib/polymarket-backtest"
+install -d -m 0755 -o polymarket-data -g polymarket-data "$backtest_workspace"
+
 ln -sfn "$release_dir" /opt/polymarket-btc-backtester/current
 install -m 0644 "$project_dir/deploy/systemd/polymarket-collector.service" \
   /etc/systemd/system/polymarket-collector.service
@@ -60,6 +65,10 @@ install -m 0644 "$project_dir/deploy/systemd/polymarket-normalize.service" \
   /etc/systemd/system/polymarket-normalize.service
 install -m 0644 "$project_dir/deploy/systemd/polymarket-normalize.timer" \
   /etc/systemd/system/polymarket-normalize.timer
+install -m 0644 "$project_dir/deploy/systemd/polymarket-backtest-refresh.service" \
+  /etc/systemd/system/polymarket-backtest-refresh.service
+install -m 0644 "$project_dir/deploy/systemd/polymarket-backtest-refresh.timer" \
+  /etc/systemd/system/polymarket-backtest-refresh.timer
 if [[ ! -e /etc/polymarket-collector.env ]]; then
   install -m 0640 -o root -g polymarket-data \
     "$project_dir/deploy/systemd/polymarket-collector.env.example" \
@@ -71,6 +80,7 @@ if $start_service; then
   systemctl enable polymarket-collector.service
   systemctl enable polymarket-dashboard.service
   systemctl enable polymarket-normalize.timer
+  systemctl enable polymarket-backtest-refresh.timer
   if systemctl is-active --quiet polymarket-collector.service; then
     systemctl restart polymarket-collector.service
   else
@@ -82,6 +92,7 @@ if $start_service; then
     systemctl start polymarket-dashboard.service
   fi
   systemctl start polymarket-normalize.timer
+  systemctl start polymarket-backtest-refresh.timer
 fi
 
 echo "Installed release: $release_dir"

@@ -37,16 +37,6 @@ class MarketRegistry:
                 first_seen_utc_ns INTEGER NOT NULL,
                 last_seen_utc_ns INTEGER NOT NULL
             );
-            CREATE TABLE IF NOT EXISTS quarantined_markets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                gamma_event_id TEXT,
-                gamma_market_id TEXT,
-                score REAL NOT NULL,
-                reason TEXT NOT NULL,
-                decision_json TEXT NOT NULL,
-                raw_gamma_payload TEXT NOT NULL,
-                observed_utc_ns INTEGER NOT NULL
-            );
             CREATE TABLE IF NOT EXISTS quarantined_market_latest (
                 gamma_event_id TEXT NOT NULL,
                 gamma_market_id TEXT NOT NULL,
@@ -69,6 +59,48 @@ class MarketRegistry:
             """
         )
         self.connection.commit()
+
+    def legacy_quarantine_rows(self) -> int:
+        """Return rows retained by the superseded append-only quarantine table.
+
+        Early collector versions inserted the same rejected Gamma candidate on
+        every discovery poll.  The raw archive is already the immutable history,
+        while ``quarantined_market_latest`` retains the operational summary, so
+        keeping that append-only SQLite copy only causes unbounded database growth.
+        New registries no longer create it; this method makes existing installations
+        inspectable before an explicit maintenance operation removes it.
+        """
+        row = self.connection.execute(
+            "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+            ("quarantined_markets",),
+        ).fetchone()
+        if row is None:
+            return 0
+        count = self.connection.execute("SELECT count(*) FROM quarantined_markets").fetchone()
+        return int(count[0]) if count else 0
+
+    def remove_legacy_quarantine(self, *, vacuum: bool = False) -> dict[str, int]:
+        """Drop the redundant legacy table, optionally reclaiming its disk pages.
+
+        This is deliberately never called during normal collector startup.  It is
+        an operator action that must run while the collector is stopped; the CLI
+        enforces that boundary and reports the before/after physical size.
+        """
+        before = self.legacy_quarantine_rows()
+        self.connection.execute("DROP TABLE IF EXISTS quarantined_markets")
+        self.connection.commit()
+        if vacuum:
+            self.connection.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            self.connection.execute("VACUUM")
+        return {"legacy_rows_removed": before}
+
+    def backup_to(self, destination: Path) -> None:
+        """Create a transactionally consistent SQLite backup."""
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            raise FileExistsError(destination)
+        with sqlite3.connect(destination) as target:
+            self.connection.backup(target)
 
     def upsert(self, market: MarketRecord, raw_payload: str) -> None:
         now = utc_now_ns()

@@ -19,7 +19,7 @@ from polymarket_bt.ingestion.clob_rest import ClobRestClient
 from polymarket_bt.ingestion.clob_ws import ClobMarketWebSocket
 from polymarket_bt.ingestion.rtds_ws import RtdsWebSocket
 from polymarket_bt.models.events import DataQualityEvent, RawEnvelope, make_raw_envelope
-from polymarket_bt.models.markets import MarketRecord
+from polymarket_bt.models.markets import MarketExecutionMetadata, MarketRecord
 from polymarket_bt.monitoring.health import HealthMonitor
 from polymarket_bt.monitoring.logging import get_logger
 from polymarket_bt.monitoring.metrics import CollectorMetrics
@@ -113,6 +113,8 @@ class CollectorSupervisor:
         self.parser = EventParser(self.market_for_token)
         self._markets: dict[str, MarketRecord] = {}
         self._token_market: dict[str, MarketRecord] = {}
+        self._execution_metadata: dict[str, MarketExecutionMetadata] = {}
+        self._execution_metadata_refreshed_ns: dict[str, int] = {}
         self._recovery_inflight: set[str] = set()
         self._tasks: list[asyncio.Task[None]] = []
         self._background_tasks: set[asyncio.Task[None]] = set()
@@ -167,6 +169,7 @@ class CollectorSupervisor:
                 response.raw_text, response.received_utc_ns, response.received_monotonic_ns
             )
         accepted: dict[str, MarketRecord] = {}
+        raw_by_condition: dict[str, str] = {}
         now = utc_now_ns()
         for event, response in self.gamma.extract_events(responses):
             decisions = self.matcher.match_event(event, discovered_ns=response.received_utc_ns)
@@ -180,6 +183,7 @@ class CollectorSupervisor:
                     event_raw = json.dumps(event, separators=(",", ":"), sort_keys=True)
                     self.registry.upsert(market, event_raw)
                     accepted[market.condition_id] = market
+                    raw_by_condition[market.condition_id] = event_raw
                 elif decision.ambiguous or decision.score >= 0.50:
                     self.registry.quarantine(
                         decision,
@@ -192,6 +196,41 @@ class CollectorSupervisor:
                         ),
                     )
         self.health.update(gamma_last_success_utc_ns=now)
+        metadata_refresh_ns = int(self.config.clob.market_metadata_refresh_seconds * 1_000_000_000)
+        metadata_refreshes: list[MarketRecord] = []
+        for condition_id, gamma_market in list(accepted.items()):
+            if not (
+                gamma_market.market_end_utc_ns >= now - 300_000_000_000
+                and gamma_market.market_start_utc_ns
+                <= now + 2 * self.config.discovery.duration_minutes * 60 * 1_000_000_000
+            ):
+                continue
+            last_refresh = self._execution_metadata_refreshed_ns.get(condition_id, 0)
+            if now - last_refresh >= metadata_refresh_ns:
+                self._execution_metadata_refreshed_ns[condition_id] = now
+                metadata_refreshes.append(gamma_market)
+        if metadata_refreshes:
+            refreshed = await asyncio.gather(
+                *(self.clob_rest.fetch_market_info(market) for market in metadata_refreshes),
+                return_exceptions=True,
+            )
+            for gamma_market, result in zip(metadata_refreshes, refreshed, strict=True):
+                if isinstance(result, BaseException):
+                    self.log.warning(
+                        "clob_market_info_failed",
+                        condition_id=gamma_market.condition_id,
+                        exception_type=type(result).__name__,
+                        message=str(result),
+                    )
+                else:
+                    self._execution_metadata[gamma_market.condition_id] = result
+        for condition_id, gamma_market in list(accepted.items()):
+            market = gamma_market
+            cached_metadata = self._execution_metadata.get(condition_id)
+            if cached_metadata is not None:
+                market = cached_metadata.apply_to_market(gamma_market)
+                self.registry.upsert(market, raw_by_condition[condition_id])
+            accepted[condition_id] = market
         relevant = [
             market
             for market in accepted.values()

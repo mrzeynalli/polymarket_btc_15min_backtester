@@ -19,6 +19,11 @@ def test_current_gamma_fixture_matches(
     assert decision.market.up_outcome_label == "Up"
     assert decision.market.up_token_id.startswith("345147")
     assert json.loads(decision.market.fee_fields_json)["feeSchedule"]["rate"] == 0.07
+    assert decision.market.fee_rate == "0.07"
+    assert decision.market.fee_exponent == 1
+    assert decision.market.fee_taker_only is True
+    # Gamma did not publish the CLOB-only delay flag in this capture.
+    assert decision.market.taker_order_delay_ms is None
 
 
 def test_mapping_uses_labels_not_array_position(
@@ -31,6 +36,27 @@ def test_mapping_uses_labels_not_array_position(
     assert decision.market is not None
     assert decision.market.up_token_id == "3" * 30
     assert decision.market.down_token_id == "2" * 30
+
+
+def test_gamma_delay_flag_does_not_invent_a_duration(
+    collector_config: CollectorConfig, fixture_root: Path
+) -> None:
+    event = json.loads((fixture_root / "gamma" / "current_btc_15m.json").read_text())
+    event["markets"][0]["takerOrderDelayEnabled"] = True
+    decision = Btc15mMarketMatcher(collector_config.discovery).match_event(event)[0]
+    assert decision.market is not None
+    assert decision.market.taker_order_delay_ms is None
+    assert json.loads(decision.market.fee_fields_json)["takerOrderDelayEnabled"] is True
+
+
+def test_gamma_explicit_delay_duration_is_retained(
+    collector_config: CollectorConfig, fixture_root: Path
+) -> None:
+    event = json.loads((fixture_root / "gamma" / "current_btc_15m.json").read_text())
+    event["markets"][0]["secondsDelay"] = "0.25"
+    decision = Btc15mMarketMatcher(collector_config.discovery).match_event(event)[0]
+    assert decision.market is not None
+    assert decision.market.taker_order_delay_ms == 250
 
 
 def test_ambiguous_outcomes_are_quarantinable(

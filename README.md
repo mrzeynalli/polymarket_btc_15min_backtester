@@ -131,25 +131,38 @@ Set `hive_partitioning=false` when a physical column such as `source` is also pr
 
 ## Read-only web dashboard
 
-The project includes a self-contained responsive market explorer in `web/index.html` and a loopback
-JSON API. Users can select a time-based slug, compare UP/DOWN bid, ask, midpoint, and spread paths,
-click any chart time to reconstruct both full books, and inspect public trades and BTC reference
-prices. New registry slugs appear automatically; a bounded systemd normalization timer publishes
-newly finalized archives without interrupting collection.
+The project includes a self-contained responsive site in `web/index.html` and a loopback JSON API.
+It opens on a chooser with two destinations:
+
+- **History** — select a time-based slug, compare UP/DOWN bid, ask, midpoint, and spread paths, click
+  any chart time to reconstruct both full books, and inspect public trades and BTC reference prices.
+  New registry slugs appear automatically; a bounded systemd normalization timer publishes newly
+  finalized archives without interrupting collection.
+- **Backtest** — set an entry price, an optional entry window, an optional stop loss that can be
+  armed only from a chosen minute, a side, a fixed or compounding stake, an execution-realism preset,
+  and an entry policy (adaptive POV, TWAP, or immediate) with a finite horizon, then run the strategy
+  across every recorded market. Orders walk the reconstructed ladder, so size the book could not
+  absorb is reported as unfilled rather than silently filled.
 
 ```bash
 .venv/bin/polymarket-bt dashboard \
   --config configs/collector.yaml \
   --host 127.0.0.1 \
   --port 9110 \
-  --index web/index.html
+  --index web/index.html \
+  --backtest-workspace /var/lib/polymarket-backtest
 
 .venv/bin/polymarket-bt dashboard-reindex --config configs/collector.yaml
 ```
 
-Production deployment uses `polymarket-dashboard.service`, `polymarket-normalize.timer`, and nginx.
-See [docs/DASHBOARD.md](docs/DASHBOARD.md) for the data flow, API, exact book semantics, and deployment
-behavior.
+Backtests read a prepared workspace (episode index plus one depth tape per market) that must live
+outside the collector storage root; `polymarket-backtest-refresh.timer` extends it after each market
+closes. Runs are queued jobs with progress, one at a time, because a run replays every recorded book
+state of every selected market.
+
+Production deployment uses `polymarket-dashboard.service`, `polymarket-normalize.timer`,
+`polymarket-backtest-refresh.timer`, and nginx. See [docs/DASHBOARD.md](docs/DASHBOARD.md) for the
+data flow, API, exact book semantics, backtest parameter mapping, and deployment behavior.
 
 ## Backtest
 
@@ -169,6 +182,25 @@ not a profitable or recommended strategy. Every run writes configuration, enviro
 manifests, quality usage, orders, fills, portfolio events, market results, metrics, JSON summary,
 and Markdown report under `data/reports/<run-id>/`.
 
+## Episode backtesting and parameter sweeps
+
+The commands above replay whatever the archive contains. For strategies defined per 15-minute
+market — enter at a price inside a time window, hold to settlement or exit at a stop loss — use
+the episode layer, which indexes markets, derives settlement ground truth, caches reconstructed
+depth ladders, and sweeps parameters under explicit execution-realism assumptions.
+
+```bash
+polymarket-bt episodes --workspace ../backtest-workspace --build-tapes
+polymarket-bt sweep --workspace ../backtest-workspace \
+  --entry-from 12 --entry-to 14 --triggers 0.80,0.90 --stops none,0.75
+polymarket-bt verify-sim --workspace ../backtest-workspace --episodes 30
+```
+
+The workspace must live outside the collector's storage root; the CLI refuses otherwise and every
+read of recorded data is read-only. `verify-sim` cross-checks the fast episode simulator against
+the audited event engine order by order. See [docs/BACKTEST_METHOD.md](docs/BACKTEST_METHOD.md) for
+the method, calibration sources, realism presets, metric definitions, and limitations.
+
 ## CLI
 
 ```text
@@ -185,6 +217,9 @@ polymarket-bt verify-files
 polymarket-bt inspect-market
 polymarket-bt replay
 polymarket-bt backtest
+polymarket-bt episodes
+polymarket-bt sweep
+polymarket-bt verify-sim
 polymarket-bt report
 ```
 
@@ -240,6 +275,7 @@ Full diagnosis steps are in `docs/TROUBLESHOOTING.md`.
 - `docs/STORAGE_LAYOUT.md` — raw, Parquet, manifests, retention.
 - `docs/OPERATIONS.md` — deployment and incident operations.
 - `docs/BACKTESTING_ASSUMPTIONS.md` — execution and no-look-ahead assumptions.
+- `docs/BACKTEST_METHOD.md` — episode indexing, settlement ground truth, execution realism, sweeps.
 - `docs/LIVE_TRADING_LOGGING.md` — specification only for a future authenticated system.
 - `docs/TROUBLESHOOTING.md` — symptom-oriented recovery.
 - `docs/SERVER_ENVIRONMENT.md` — pre-installation server audit.

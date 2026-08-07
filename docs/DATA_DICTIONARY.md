@@ -116,6 +116,28 @@ One latest normalized row per condition in a normalization batch. Source: Gamma 
 | `valid_from_utc_ns` | int64 | Mapping observation receipt. |
 | `raw_event_reference` | string/null | Gamma source envelope. |
 
+## `market_execution_metadata`
+
+Timestamped observations of parameters that change how an order executes. Gamma observations retain
+the discovery fee schedule. CLOB `GET /clob-markets/{condition_id}` observations are authoritative
+for the compact `fd` fee curve, while `GET /markets/{condition_id}` carries the authoritative
+`seconds_delay` duration. The compact `itode` field is only an enable flag: false establishes zero,
+but true without a duration remains null rather than being converted to a guessed delay.
+
+| Field | Type | Meaning |
+|---|---:|---|
+| `condition_id` | string | Market condition. |
+| `received_utc_ns`, `sequence` | int64 | Causal local availability and raw ordering. |
+| `fee_rate` | string/null | Exact decimal fee-curve rate, without binary-float coercion. |
+| `fee_exponent` | int32/null | Fee-curve exponent. |
+| `fee_taker_only` | bool/null | Whether the curve applies only to takers. |
+| `maker_base_fee_bps`, `taker_base_fee_bps` | int64/null | Venue base-fee fields. |
+| `taker_order_delay_ms` | int32/null | Exact `seconds_delay × 1000`; `0` when explicitly zero/disabled, null when unknown. |
+| `tick_size_scaled`, `minimum_order_size_scaled` | int64/null | Venue order constraints at the observation. |
+| `source` | string | `gamma`, `clob_rest_market_info`, or authoritative-duration `clob_rest_market`. |
+| `metadata_json` | string | Exact selected source object serialized as JSON. |
+| `raw_event_reference` | string/null | Raw archive provenance. |
+
 ## `book_snapshots`
 
 Header for a complete REST or WebSocket book replacement.

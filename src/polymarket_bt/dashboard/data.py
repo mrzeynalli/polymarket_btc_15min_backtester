@@ -5,6 +5,7 @@ import sqlite3
 import threading
 import time
 from collections import OrderedDict
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, cast
@@ -12,16 +13,20 @@ from typing import Any, cast
 import duckdb
 import httpx
 
-from polymarket_bt.clock import decimal_to_scaled, utc_now_ns
+from polymarket_bt.clock import decimal_to_scaled, scaled_to_decimal, utc_iso_from_ns, utc_now_ns
 from polymarket_bt.constants import (
     BTC_PRICE_SCALE,
     POLYMARKET_PRICE_SCALE,
     SHARE_SIZE_SCALE,
+    USDC_SCALE,
 )
 from polymarket_bt.dashboard.cache import series_path
 from polymarket_bt.models.markets import MarketRecord
 
 COVERAGE_EDGE_TOLERANCE_NS = 60 * 1_000_000_000
+# Effectively "no downsampling": a market's whole recorded life is at most tens of
+# thousands of top-of-book points, far under this cap.
+EXPORT_MAX_POINTS = 5_000_000
 
 
 def _quote_path(path: Path) -> str:
@@ -100,9 +105,12 @@ class DashboardData:
             raise LookupError(f"unknown market slug: {slug}")
         return MarketRecord.model_validate_json(row["market_json"])
 
-    def _top_files(self) -> list[Path]:
-        root = self.normalized_root / "top_of_book"
+    def _all_files(self, dataset: str) -> list[Path]:
+        root = self.normalized_root / dataset
         return sorted(root.rglob("*.parquet")) if root.exists() else []
+
+    def _top_files(self) -> list[Path]:
+        return self._all_files("top_of_book")
 
     def _dashboard_index(self) -> dict[str, Any]:
         try:
@@ -500,6 +508,141 @@ class DashboardData:
         return DashboardData._downsample_cached_points(
             sampled[:maximum], maximum, start_ms=start_ms, end_ms=end_ms
         )
+
+    def _export_points(self, market: MarketRecord) -> dict[str, list[dict[str, int | None]]]:
+        """Full-resolution UP/DOWN top-of-book points for one market, unclamped.
+
+        Mirrors the "recorded" branch of `series()` but skips its response cache and
+        live-book augmentation: an export describes what was durably captured, not
+        the current live quote, and piping bulk export payloads through the small
+        in-memory `_ResponseCache` would just evict data useful to the chart API.
+        """
+        start_ns = market.market_start_utc_ns
+        end_ns = market.market_end_utc_ns
+        series_cache = series_path(self.storage_root, market.condition_id)
+        cached_series: dict[str, Any] | None = None
+        try:
+            raw_cache = json.loads(series_cache.read_text(encoding="utf-8"))
+            if isinstance(raw_cache, dict):
+                cached_series = raw_cache
+        except (OSError, json.JSONDecodeError):
+            pass
+        if cached_series is not None:
+            tokens = cached_series.get("tokens", {})
+            return {
+                outcome: self._downsample_cached_points(
+                    tokens.get(token_id, []) if isinstance(tokens, dict) else [],
+                    EXPORT_MAX_POINTS,
+                    start_ms=start_ns // 1_000_000,
+                    end_ms=end_ns // 1_000_000,
+                )
+                for outcome, token_id in (
+                    ("UP", market.up_token_id),
+                    ("DOWN", market.down_token_id),
+                )
+            }
+        top_files = self._files("top_of_book", start_ns, end_ns)
+        if not top_files:
+            return {"UP": [], "DOWN": []}
+        connection = duckdb.connect(":memory:")
+        try:
+            rows = connection.execute(
+                f"""
+                SELECT token_id, received_utc_ns, sequence, best_bid_scaled,
+                       best_ask_scaled, midpoint_scaled, spread_scaled
+                FROM {_parquet_source(top_files)}
+                WHERE condition_id = ? AND received_utc_ns BETWEEN ? AND ?
+                ORDER BY received_utc_ns, sequence
+                """,
+                (market.condition_id, start_ns, end_ns),
+            ).fetchall()
+        finally:
+            connection.close()
+        return self._downsample_top(rows, market, EXPORT_MAX_POINTS)
+
+    @staticmethod
+    def _csv_field(value: str) -> str:
+        if any(character in value for character in (",", '"', "\n")):
+            return '"' + value.replace('"', '""') + '"'
+        return value
+
+    @staticmethod
+    def _csv_decimal(value: int | None) -> str:
+        return "" if value is None else str(scaled_to_decimal(value, POLYMARKET_PRICE_SCALE))
+
+    @staticmethod
+    def export_header() -> bytes:
+        return b"slug,condition_id,outcome,t_ms,iso_time,best_bid,best_ask,midpoint,spread\n"
+
+    def export_markets(
+        self, *, from_ms: int | None = None, to_ms: int | None = None
+    ) -> list[MarketRecord]:
+        """Markets whose recording started inside [from_ms, to_ms], oldest first.
+
+        Both bounds are optional and inclusive; omitting both returns every
+        recorded market. There is no row cap here — bulk export is meant to
+        return everything the caller asked for, streamed rather than paged.
+        """
+        clauses: list[str] = []
+        params: list[int] = []
+        if from_ms is not None:
+            clauses.append("market_start_utc_ns >= ?")
+            params.append(from_ms * 1_000_000)
+        if to_ms is not None:
+            clauses.append("market_start_utc_ns <= ?")
+            params.append(to_ms * 1_000_000)
+        query = "SELECT market_json FROM markets"
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        query += " ORDER BY market_start_utc_ns ASC"
+        with self._registry() as connection:
+            rows = connection.execute(query, params).fetchall()
+        return [MarketRecord.model_validate_json(row["market_json"]) for row in rows]
+
+    def export_rows_for_market(self, market: MarketRecord) -> Iterator[bytes]:
+        points = self._export_points(market)
+        slug = self._csv_field(market.market_slug)
+        condition_id = self._csv_field(market.condition_id)
+        for outcome in ("UP", "DOWN"):
+            for point in points.get(outcome, []):
+                t_ms = point.get("t_ms")
+                if t_ms is None:
+                    continue
+                yield (
+                    f"{slug},{condition_id},{outcome},{t_ms},{utc_iso_from_ns(int(t_ms) * 1_000_000)},"
+                    f"{self._csv_decimal(point.get('bid'))},{self._csv_decimal(point.get('ask'))},"
+                    f"{self._csv_decimal(point.get('mid'))},{self._csv_decimal(point.get('spread'))}\n"
+                ).encode()
+
+    def stats(self) -> dict[str, Any]:
+        cached = self._cache.get("stats", 30.0)
+        if cached is not None:
+            return cached
+        files = self._all_files("trades")
+        trade_count = 0
+        total_notional_scaled = 0
+        if files:
+            duck = duckdb.connect(":memory:")
+            try:
+                row = duck.execute(
+                    f"SELECT count(*), sum(notional_scaled) FROM {_parquet_source(files)}"
+                ).fetchone()
+            finally:
+                duck.close()
+            if row is not None:
+                trade_count = int(row[0] or 0)
+                total_notional_scaled = int(row[1] or 0)
+        with self._registry() as connection:
+            count_row = connection.execute("SELECT count(*) FROM markets").fetchone()
+            market_count = int(count_row[0]) if count_row is not None else 0
+        payload = {
+            "generated_at_ms": utc_now_ns() // 1_000_000,
+            "market_count": market_count,
+            "trade_count": trade_count,
+            "captured_notional_usd": str(scaled_to_decimal(total_notional_scaled, USDC_SCALE)),
+        }
+        self._cache.put("stats", payload)
+        return payload
 
     @staticmethod
     def _depth_payload(

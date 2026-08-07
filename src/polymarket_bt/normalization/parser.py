@@ -435,12 +435,42 @@ class EventParser:
             self.set_tick_size(tick_change.token_id, tick_change.new_tick_size_scaled)
             result.tick_size_changes.append(tick_change)
         elif event_type == "market_resolved":
+            condition_id = str(message.get("market") or message.get("condition_id") or "")
+            winning_token_id = str(message.get("winning_asset_id") or "")
+            if not condition_id or not winning_token_id:
+                result.invalid_count += 1
+                result.quality.append(
+                    _quality(
+                        envelope,
+                        "malformed_market_resolution",
+                        "market_resolved requires market and winning_asset_id",
+                    )
+                )
+                return
+            winning_market = self.market_for_token(winning_token_id)
+            if winning_market is not None and winning_market.condition_id != condition_id:
+                result.invalid_count += 1
+                result.quality.append(
+                    _quality(
+                        envelope,
+                        "invalid_market_resolution_token",
+                        "winning_asset_id belongs to another condition",
+                    )
+                )
+                return
             result.resolutions.append(
                 {
                     "schema_version": SCHEMA_VERSION,
-                    "condition_id": str(message.get("market") or message.get("condition_id")),
-                    "winning_token_id": str(message.get("winning_asset_id")),
-                    "winning_outcome": str(message.get("winning_outcome")),
+                    "condition_id": condition_id,
+                    "winning_token_id": winning_token_id,
+                    "winning_outcome": str(
+                        message.get("winning_outcome")
+                        or (
+                            winning_market.token_outcomes[winning_token_id]
+                            if winning_market is not None
+                            else ""
+                        )
+                    ),
                     "exchange_timestamp_ns": parse_timestamp_ns(message.get("timestamp")),
                     "received_utc_ns": envelope.received_utc_ns,
                     "sequence": envelope.sequence,

@@ -1,0 +1,15 @@
+[Unit]
+Description=Publish newly settled 15-minute markets to the backtester
+
+[Timer]
+# Markets close on quarter-hour boundaries and need their final segment
+# normalized first, so this runs a few minutes behind rather than on the hour.
+OnBootSec=5min
+OnCalendar=*:04,19,34,49
+RandomizedDelaySec=45s
+Persistent=true
+AccuracySec=30s
+Unit=polymarket-backtest-refresh.service
+
+[Install]
+WantedBy=timers.target

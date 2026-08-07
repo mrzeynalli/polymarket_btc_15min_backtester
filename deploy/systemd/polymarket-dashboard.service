@@ -9,7 +9,7 @@ User=polymarket-data
 Group=polymarket-data
 WorkingDirectory=/opt/polymarket-btc-backtester/current
 EnvironmentFile=-/etc/polymarket-collector.env
-ExecStart=/opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt dashboard --config /opt/polymarket-btc-backtester/current/configs/collector.yaml --host 127.0.0.1 --port 9110 --index /opt/polymarket-btc-backtester/current/web/index.html
+ExecStart=/opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt dashboard --config /opt/polymarket-btc-backtester/current/configs/collector.yaml --host 127.0.0.1 --port 9110 --index /opt/polymarket-btc-backtester/current/web/index.html --backtest-workspace /var/lib/polymarket-backtest
 Restart=on-failure
 RestartSec=3
 TimeoutStopSec=20
@@ -21,10 +21,16 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
+# SQLite WAL readers need read/write access to the -shm/-wal companion files for
+# locking even though every connection here is opened with mode=ro.
+ReadWritePaths=/var/lib/polymarket-btc-backtester
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
 CapabilityBoundingSet=
 LockPersonality=true
-MemoryMax=1536M
+# Backtests hold decoded order-book tapes in a bounded cache and replay them in a
+# single worker thread; the collector shares this box and must keep priority.
+Nice=5
+MemoryMax=2560M
 
 [Install]
 WantedBy=multi-user.target

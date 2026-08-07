@@ -276,6 +276,132 @@
     .explain p { margin: 0; color: var(--muted); font-size: 11px; }
     .dataset-chip { display: inline-block; margin-top: 5px; padding: 2px 6px; border-radius: 5px; background: rgba(255,255,255,.04); color: var(--faint); font: 9px var(--mono); }
 
+    /* ---- routed views ------------------------------------------------- */
+    [hidden] { display: none !important; }
+    .home { max-width: 1000px; margin: 0 auto; padding: 58px 22px 70px; }
+    .home-lede { text-align: center; margin-bottom: 40px; }
+    .home-lede h1 { margin: 0 0 12px; font-size: clamp(28px, 5vw, 42px); letter-spacing: -.03em; }
+    .home-lede p { margin: 0 auto; max-width: 640px; color: var(--muted); font-size: 14px; }
+    .home-choices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .choice {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 30px 28px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: linear-gradient(145deg, rgba(15,29,24,.95), rgba(9,20,17,.95));
+      box-shadow: var(--shadow);
+      text-decoration: none;
+      color: inherit;
+      transition: border-color .18s, transform .18s, box-shadow .18s;
+    }
+    .choice:hover, .choice:focus-visible { border-color: rgba(49,230,161,.45); transform: translateY(-3px); outline: none; }
+    .choice-icon { width: 46px; height: 46px; display: grid; place-items: center; border-radius: 14px; background: rgba(49,230,161,.10); color: var(--up); font-size: 22px; }
+    .choice h2 { margin: 17px 0 7px; font-size: 21px; letter-spacing: -.02em; }
+    .choice p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+    .choice-go { display: inline-block; margin-top: 16px; color: var(--up); font-size: 12px; font-weight: 650; }
+    .choice.alt .choice-icon { background: rgba(105,167,255,.12); color: var(--blue); }
+    .choice.alt:hover, .choice.alt:focus-visible { border-color: rgba(105,167,255,.45); }
+    .choice.alt .choice-go { color: var(--blue); }
+    .home-note { margin-top: 34px; padding: 15px 17px; border: 1px solid var(--line); border-radius: 14px; color: var(--muted); font-size: 11.5px; line-height: 1.65; }
+    .home-note strong { color: var(--text); }
+    .nav-links { display: flex; gap: 4px; }
+    .nav-link {
+      height: 32px; display: inline-flex; align-items: center; padding: 0 12px;
+      border: 1px solid transparent; border-radius: 9px; background: none;
+      color: var(--muted); font-size: 12px; font-weight: 620; text-decoration: none;
+    }
+    .nav-link:hover { color: var(--text); }
+    .nav-link.active { border-color: var(--line-strong); background: rgba(255,255,255,.045); color: var(--text); }
+
+    /* ---- backtest ------------------------------------------------------ */
+    .bt, .about { max-width: 1320px; margin: 0 auto; padding: 22px 22px 60px; }
+    .about .bt-head p { max-width: 900px; }
+    .bt-head { margin-bottom: 18px; }
+    .bt-head h1 { margin: 0 0 6px; font-size: 27px; letter-spacing: -.028em; }
+    .bt-head p { margin: 0; color: var(--muted); font-size: 12.5px; max-width: 760px; }
+    .bt-grid { display: grid; grid-template-columns: 372px minmax(0, 1fr); gap: 18px; align-items: start; }
+    .form-body { padding: 17px 18px 20px; }
+    .field { margin-bottom: 15px; }
+    .field:last-child { margin-bottom: 0; }
+    .field > label, .field-legend { display: block; margin-bottom: 6px; color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
+    .field-hint { margin-top: 5px; color: var(--faint); font-size: 10.5px; line-height: 1.5; }
+    .hint-list { margin: 4px 0 4px 14px; padding: 0; }
+    .hint-list li { margin: 2px 0; }
+    .bt-return {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      margin: 0 0 10px; padding: 8px 12px; border-radius: 11px;
+      border: 1px solid rgba(74,222,128,.28); background: rgba(74,222,128,.07);
+      font-size: 11px; color: var(--muted); flex-wrap: wrap;
+    }
+    .bt-return a { text-decoration: none; }
+    tbody tr.clickable { cursor: pointer; }
+    tbody tr.clickable:hover { background: rgba(255,255,255,.04); }
+    .control {
+      width: 100%; height: 40px; padding: 0 11px;
+      border: 1px solid var(--line); border-radius: 11px;
+      background: rgba(255,255,255,.025); color: var(--text);
+      font-family: var(--mono); outline: none; transition: border .2s, box-shadow .2s;
+    }
+    select.control { font-family: var(--sans); }
+    .control:focus { border-color: rgba(49,230,161,.48); box-shadow: 0 0 0 3px rgba(49,230,161,.08); }
+    .control:disabled { opacity: .42; cursor: not-allowed; }
+    .control-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .optional-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+    .switch { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 11px; cursor: pointer; user-select: none; }
+    .switch input { accent-color: var(--up); width: 15px; height: 15px; }
+    .field-group { padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; background: rgba(255,255,255,.016); margin-bottom: 15px; }
+    .field-group.off { opacity: .55; }
+    .segmented { display: grid; grid-auto-flow: column; gap: 5px; padding: 4px; border: 1px solid var(--line); border-radius: 11px; background: rgba(255,255,255,.02); }
+    .segmented button {
+      height: 32px; border: none; border-radius: 8px; background: none;
+      color: var(--muted); font-size: 11.5px; font-weight: 620;
+    }
+    .segmented button[aria-pressed="true"] { background: rgba(49,230,161,.14); color: var(--up); }
+    .run-button {
+      width: 100%; height: 46px; margin-top: 4px;
+      border: 1px solid rgba(49,230,161,.4); border-radius: 13px;
+      background: linear-gradient(145deg, rgba(49,230,161,.20), rgba(49,230,161,.09));
+      color: #d9fff0; font-size: 14px; font-weight: 700;
+    }
+    .run-button:hover:not(:disabled) { border-color: rgba(49,230,161,.7); }
+    .run-button:disabled { opacity: .55; cursor: progress; }
+    .form-error { margin-top: 11px; padding: 10px 12px; border: 1px solid rgba(255,111,118,.3); border-radius: 11px; background: rgba(255,111,118,.07); color: #ffb7bb; font-size: 11.5px; }
+    .bt-status { padding: 15px 18px; border-bottom: 1px solid var(--line); }
+    .progress-track { height: 5px; margin-top: 10px; border-radius: 6px; background: rgba(255,255,255,.06); overflow: hidden; }
+    .progress-fill { height: 100%; width: 0; border-radius: 6px; background: linear-gradient(90deg, var(--blue), var(--up)); transition: width .3s; }
+    .placeholder { padding: 54px 24px; text-align: center; color: var(--muted); font-size: 12.5px; }
+    .placeholder strong { display: block; margin-bottom: 6px; color: var(--text); font-size: 14px; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 16px 18px; }
+    .metric { padding: 13px 14px; border: 1px solid var(--line); border-radius: 13px; background: linear-gradient(145deg, rgba(255,255,255,.032), rgba(255,255,255,.012)); }
+    .metric span { display: block; color: var(--muted); font-size: 9.5px; text-transform: uppercase; letter-spacing: .09em; font-weight: 700; }
+    .metric strong { display: block; margin-top: 6px; font-family: var(--mono); font-size: 18px; font-weight: 700; letter-spacing: -.04em; }
+    .metric small { display: block; margin-top: 3px; color: var(--faint); font-size: 10px; }
+    .metric strong.pos { color: var(--up); } .metric strong.neg { color: var(--down); }
+    .fill-bar { height: 7px; margin: 10px 0 4px; border-radius: 6px; background: rgba(255,111,118,.16); overflow: hidden; }
+    .fill-bar i { display: block; height: 100%; border-radius: 6px; background: var(--up); }
+    .kv { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 9px 18px; padding: 4px 18px 18px; }
+    .kv div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed rgba(255,255,255,.06); font-size: 11.5px; }
+    .kv dt, .kv span:first-child { color: var(--muted); }
+    .kv strong { font-family: var(--mono); }
+    .curve-wrap { position: relative; height: 240px; padding: 12px 14px 6px; }
+    .warn-note { margin: 0 18px 16px; padding: 11px 13px; border: 1px solid rgba(247,201,107,.28); border-radius: 12px; background: rgba(247,201,107,.06); color: #f2dfb4; font-size: 11.5px; line-height: 1.6; }
+    .tag { display: inline-block; padding: 2px 7px; border-radius: 6px; background: rgba(255,255,255,.05); color: var(--muted); font: 9.5px var(--mono); }
+    .tag.win { background: rgba(49,230,161,.13); color: var(--up); }
+    .tag.loss { background: rgba(255,111,118,.13); color: var(--down); }
+    @media (max-width: 1080px) {
+      .bt-grid { grid-template-columns: 1fr; }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      .home { padding: 34px 15px 50px; }
+      .home-choices { grid-template-columns: 1fr; }
+      .bt { padding: 16px 12px 46px; }
+      .metric-grid { grid-template-columns: 1fr; }
+      .nav-link { padding: 0 9px; font-size: 11px; }
+    }
+
     .loading-bar { position: fixed; z-index: 50; left: 0; top: 0; height: 2px; width: 100%; overflow: hidden; opacity: 0; transition: opacity .2s; }
     .loading-bar.active { opacity: 1; }
     .loading-bar::after { content: ""; display: block; height: 100%; width: 35%; background: linear-gradient(90deg, transparent, var(--up), transparent); animation: load 1s infinite linear; }
@@ -337,12 +463,43 @@
         </div>
       </div>
       <div class="topbar-right">
+        <nav class="nav-links" id="navLinks" aria-label="Sections">
+          <a class="nav-link" href="#/history" data-route="#/history">History</a>
+          <a class="nav-link" href="#/backtest" data-route="#/backtest">Backtest</a>
+          <a class="nav-link" href="#/about" data-route="#/about">About</a>
+        </nav>
         <span class="health-pill" id="healthPill"><span class="health-dot"></span><span id="healthText">Connecting</span></span>
         <span class="mono" id="utcClock" style="color:var(--muted);font-size:11px"></span>
       </div>
     </header>
 
-    <div class="layout">
+    <main class="home" id="homeView">
+      <div class="home-lede">
+        <h1>Polymarket BTC 15-minute markets</h1>
+        <p>Every UP/DOWN market is recorded from the public order-book feed and kept as replayable Level-2 depth. Browse what happened, or test what a set of trading rules would have done against the same recorded books.</p>
+      </div>
+      <div class="home-choices">
+        <a class="choice" href="#/history" id="goHistory">
+          <div class="choice-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M3 17.5 9 11l4 3.6L21 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 21h18" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+          </div>
+          <h2>History</h2>
+          <p>Pick any recorded 15-minute market and step through it: UP and DOWN price paths, spreads, the full reconstructed order book at any instant, public trades, and the BTC reference feed.</p>
+          <span class="choice-go">Browse recorded markets →</span>
+        </a>
+        <a class="choice alt" href="#/backtest" id="goBacktest">
+          <div class="choice-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M4 4v13a3 3 0 0 0 3 3h13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><rect x="8" y="9" width="3" height="7" rx="1" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="5" width="3" height="11" rx="1" stroke="currentColor" stroke-width="1.6"/></svg>
+          </div>
+          <h2>Backtest</h2>
+          <p>Set an entry price, an optional time window, an optional stop loss, and a fixed or compounding stake, then run it across every recorded market. Orders are filled by walking the real order book, so size that the book could not absorb is reported as unfilled.</p>
+          <span class="choice-go">Configure a strategy →</span>
+        </a>
+      </div>
+      <p class="home-note"><strong>Read-only.</strong> This site holds no wallet, submits no orders, and never writes to the recorded archive. Backtests are simulations over past order books; a simulated fill is an estimate of what the book would have given you, not a promise. Past results do not predict future ones.</p>
+    </main>
+
+    <div class="layout" id="historyView" hidden>
       <aside class="sidebar">
         <div class="sidebar-heading">
           <span class="eyebrow">Captured markets</span>
@@ -394,6 +551,10 @@
               <label class="toggle"><input id="showBands" type="checkbox" checked> Bid/ask bands</label>
               <button class="soft-button" id="jumpLatest">Latest</button>
             </div>
+          </div>
+          <div class="bt-return" id="backtestReturn" hidden>
+            <span id="backtestReturnText">Showing the fills from your backtest on this market.</span>
+            <a class="soft-button" href="#/backtest">← Back to results</a>
           </div>
           <div class="chart-wrap" id="priceChartWrap">
             <canvas id="priceChart" aria-label="UP and DOWN price chart"></canvas>
@@ -457,6 +618,277 @@
         </footer>
       </main>
     </div>
+
+    <main class="bt" id="backtestView" hidden>
+      <div class="bt-head">
+        <h1>Backtest a strategy</h1>
+        <p>Buy a side once it reaches a price, then hold to settlement — or sell if it falls back to a stop loss, which you can arm only from a chosen minute. Every order is executed against the recorded Level-2 book with latency, so it can fill partially or not at all.</p>
+      </div>
+
+      <div class="bt-grid">
+        <form class="panel" id="backtestForm" autocomplete="off">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Parameters</div>
+              <div class="panel-subtitle" id="coverageNote">Loading recorded coverage…</div>
+            </div>
+          </div>
+          <div class="form-body">
+            <div class="field">
+              <label for="entryPrice">Buy when the price reaches</label>
+              <input class="control" id="entryPrice" type="number" min="0.01" max="0.99" step="0.01" value="0.80" required>
+              <div class="field-hint">Measured on the <em>ask</em> — the price you would actually pay, not the midpoint. This is the <em>trigger</em>, not necessarily the price you get.</div>
+            </div>
+
+            <div class="field">
+              <label for="entryLimit">Never pay more than</label>
+              <input class="control" id="entryLimit" type="number" min="0.01" max="1" step="0.01" value="0.85">
+              <div class="field-hint">
+                The highest ask the order will accept. It matters more than it looks, because the trigger above only says <em>when</em> to buy, not <em>at what price</em>:
+                <ul class="hint-list">
+                  <li>If the ask is already past your trigger when the window opens — normal when the window starts late — you buy at whatever it is <em>now</em>, up to this ceiling.</li>
+                  <li>If the book moves while your order is in flight, anything above this is abandoned instead of filled.</li>
+                </ul>
+                A binary bought at <em>p</em> has to settle in your favour <em>p</em> of the time just to break even, so a loose ceiling quietly raises the bar. Keep it close to the trigger — <strong id="ceilingHint">0.81</strong> for a 0.80 trigger — unless you deliberately want to chase.
+              </div>
+            </div>
+
+            <div class="field">
+              <span class="field-legend">Which side</span>
+              <div class="segmented" id="sideSelect" role="group" aria-label="Side to buy">
+                <button type="button" data-side="favoured" aria-pressed="true">Favoured</button>
+                <button type="button" data-side="up" aria-pressed="false">UP only</button>
+                <button type="button" data-side="down" aria-pressed="false">DOWN only</button>
+              </div>
+              <div class="field-hint">“Favoured” buys whichever side reaches the entry price first.</div>
+            </div>
+
+            <div class="field">
+              <span class="field-legend">Staking</span>
+              <div class="segmented" id="sizingSelect" role="group" aria-label="How each position is sized">
+                <button type="button" data-sizing="fixed" aria-pressed="true">Fixed amount</button>
+                <button type="button" data-sizing="compound" aria-pressed="false">Compound balance</button>
+              </div>
+              <div class="field-hint" id="sizingHint">The same stake on every market, so one bad market cannot end the run.</div>
+            </div>
+
+            <div class="field">
+              <label for="stake" id="stakeLabel">Position size (USD per market)</label>
+              <input class="control" id="stake" type="number" min="1" max="10000000" step="1" value="500" required>
+              <div class="field-hint" id="stakeHint">Converted to shares at the fill price. If the book is thinner than your size, the remainder simply does not fill — the result reports how much.</div>
+            </div>
+
+            <div class="field-group" id="entryWindowGroup">
+              <div class="optional-head">
+                <span class="field-legend" style="margin:0">Timed entry</span>
+                <label class="switch"><input type="checkbox" id="useEntryWindow" checked> Enabled</label>
+              </div>
+              <div class="control-pair">
+                <div><label for="entryFrom" style="font-size:9.5px">From minute</label><input class="control" id="entryFrom" type="number" min="0" max="15" step="0.5" value="12"></div>
+                <div><label for="entryTo" style="font-size:9.5px">To minute</label><input class="control" id="entryTo" type="number" min="0.5" max="15" step="0.5" value="14"></div>
+              </div>
+              <div class="field-hint">Off means the entry may trigger at any point in the 15 minutes.</div>
+            </div>
+
+            <div class="field-group" id="stopLossGroup">
+              <div class="optional-head">
+                <span class="field-legend" style="margin:0">Stop loss</span>
+                <label class="switch"><input type="checkbox" id="useStopLoss" checked> Enabled</label>
+              </div>
+              <input class="control" id="stopLossPrice" type="number" min="0.01" max="0.98" step="0.01" value="0.75">
+              <div class="field-hint">Sell everything if the <em>bid</em> falls to this price. Off means hold to settlement.</div>
+            </div>
+
+            <div class="field-group off" id="stopArmGroup">
+              <div class="optional-head">
+                <span class="field-legend" style="margin:0">Arm the stop later</span>
+                <label class="switch"><input type="checkbox" id="useStopArm"> Enabled</label>
+              </div>
+              <input class="control" id="stopFromMinute" type="number" min="0" max="15" step="0.5" value="13" disabled>
+              <div class="field-hint">The stop does nothing before this minute, so an early dip is ridden out and only a late collapse is sold into. Off means the stop is live from the moment you are filled.</div>
+            </div>
+
+            <div class="field">
+              <label for="realism">Execution realism</label>
+              <select class="control" id="realism">
+                <option value="optimistic">Optimistic — 25 ms, all displayed depth reachable</option>
+                <option value="base" selected>Base — measured latency, 25% depth haircut, 1¢ through the touch</option>
+                <option value="pessimistic">Pessimistic — 250 ms, half the depth, ½¢ through the touch</option>
+              </select>
+              <div class="field-hint">How much of the displayed book you are assumed to actually get, how far your order will chase it, and how long it takes to arrive. A result that only works under “optimistic” has not been demonstrated — try all three.</div>
+            </div>
+
+            <div class="field">
+              <label for="executionPolicy">Entry execution policy</label>
+              <select class="control" id="executionPolicy">
+                <option value="adaptive_pov" selected>Adaptive POV — follow observed flow, with a timed floor</option>
+                <option value="twap">TWAP — split evenly across the horizon</option>
+                <option value="immediate">Immediate — one marketable sweep</option>
+              </select>
+              <div class="field-hint">How the parent entry is split after the signal. Adaptive POV reacts only to volume already observed, keeps a partial time-based floor, and catches up at the deadline. TWAP follows an even schedule. Immediate sends the full affordable order at once.</div>
+            </div>
+
+            <div class="field">
+              <label for="executionHorizon">Execution horizon (seconds)</label>
+              <input class="control" id="executionHorizon" type="number" min="0.25" max="60" step="0.25" value="2" required>
+              <div class="field-hint">The deadline for adaptive POV or TWAP child orders, capped by the entry window and market close. Immediate execution does not use this horizon.</div>
+            </div>
+
+            <div class="field">
+              <span class="field-legend">Markets to test</span>
+              <div class="control-pair">
+                <div><label for="fromDate" style="font-size:9.5px">From (UTC)</label><input class="control" id="fromDate" type="date"></div>
+                <div><label for="toDate" style="font-size:9.5px">To (UTC)</label><input class="control" id="toDate" type="date"></div>
+              </div>
+              <div class="field-hint">Leave empty to use every recorded market.</div>
+            </div>
+
+            <button class="run-button" id="runBacktest" type="submit">Run backtest</button>
+            <div class="form-error" id="formError" hidden></div>
+          </div>
+        </form>
+
+        <div>
+          <section class="panel" id="resultPanel">
+            <div class="bt-status" id="btStatus" hidden>
+              <div style="display:flex;justify-content:space-between;gap:12px;font-size:12px">
+                <span id="btStatusText">Queued</span>
+                <span class="mono" style="color:var(--muted)" id="btStatusCount"></span>
+              </div>
+              <div class="progress-track"><div class="progress-fill" id="btProgress"></div></div>
+            </div>
+            <div class="placeholder" id="btPlaceholder">
+              <strong>No backtest has been run yet</strong>
+              Choose parameters and press Run. Every selected market is replayed order-book state by order-book state, so a run takes a few seconds.
+            </div>
+            <div id="btResults" hidden>
+              <div class="panel-header">
+                <div>
+                  <div class="panel-title">Result</div>
+                  <div class="panel-subtitle" id="resultSubtitle"></div>
+                </div>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+                  <span class="tag" id="resultPolicy"></span>
+                  <span class="tag" id="resultRealism"></span>
+                </div>
+              </div>
+              <div class="metric-grid" id="headlineMetrics"></div>
+              <div class="warn-note" id="resultWarning" hidden></div>
+            </div>
+          </section>
+
+          <section class="panel" id="liquidityPanel" hidden>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Order-book fill quality</div>
+                <div class="panel-subtitle">What the book absorbed, as opposed to what the strategy asked for</div>
+              </div>
+            </div>
+            <div class="metric-grid" id="fillMetrics"></div>
+            <div class="kv" id="fillDetail"></div>
+          </section>
+
+          <section class="panel" id="curvePanel" hidden>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title" id="curveTitle">Cumulative profit</div>
+                <div class="panel-subtitle" id="curveSubtitle">Trades in chronological order, one point per market entered</div>
+              </div>
+            </div>
+            <div class="curve-wrap"><canvas id="equityChart"></canvas></div>
+          </section>
+
+          <section class="panel" id="metricsPanel" hidden>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Full metrics</div>
+                <div class="panel-subtitle">Side-correct and profitable are different questions once a stop loss is involved</div>
+              </div>
+            </div>
+            <div class="kv" id="allMetrics"></div>
+          </section>
+
+          <section class="panel" id="tradesPanel" hidden>
+            <div class="panel-header">
+              <div>
+                <div class="panel-title">Every market</div>
+                <div class="panel-subtitle" id="tradesSubtitle"></div>
+              </div>
+              <label class="switch"><input type="checkbox" id="onlyTrades" checked> Only markets traded</label>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Market</th><th>Side</th><th>Won</th><th>Entry</th><th>Min</th><th>Shares</th><th>Stake</th><th>Exit</th><th>Exit px</th><th>Fees</th><th>Net</th></tr></thead>
+                <tbody id="tradeRowsBt"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <footer class="footer">
+            <span>Simulated fills over recorded public order books · no wallet · no order submission</span>
+            <span id="btFooter"></span>
+          </footer>
+        </div>
+      </div>
+    </main>
+
+    <main class="about" id="aboutView" hidden>
+      <div class="bt-head">
+        <h1>About this platform</h1>
+        <p>This site records every Polymarket BTC UP/DOWN 15-minute market straight off the public CLOB WebSocket feed — full Level-2 order books, trades, and the Binance/Chainlink BTC reference price — and normalizes the raw messages into structured, decimal-clean datasets. History replays that data as price charts and reconstructed order books; Backtest replays it as fills, running a strategy against the same recorded books. Nothing here is a wallet, and nothing here submits an order.</p>
+      </div>
+
+      <section class="summary-grid" style="grid-template-columns:repeat(3,minmax(160px,1fr));margin-bottom:16px" aria-label="Coverage so far">
+        <div class="summary-card"><span class="summary-label">Captured trade volume</span><strong class="summary-value" id="aboutVolume">—</strong><span class="summary-note">Executed notional, all recorded markets</span></div>
+        <div class="summary-card"><span class="summary-label">Markets recorded</span><strong class="summary-value" id="aboutMarketCount">—</strong><span class="summary-note">15-minute UP/DOWN intervals</span></div>
+        <div class="summary-card"><span class="summary-label">Trades captured</span><strong class="summary-value" id="aboutTradeCount">—</strong><span class="summary-note">Public fills on either side</span></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header"><div><div class="panel-title">How it works</div><div class="panel-subtitle">Raw feed → normalized data → charts and backtests</div></div></div>
+        <div class="explain">
+          <div class="explain-item"><span class="explain-icon">01</span><div><h3>Collected live over WebSocket</h3><p>A collector subscribes to the public CLOB market-data socket for every BTC UP/DOWN market the moment it opens, and keeps the full, unfiltered stream — snapshots, level updates, and trades — with nothing summarized away.</p></div></div>
+          <div class="explain-item"><span class="explain-icon">02</span><div><h3>Normalized to fixed-point, decimal-clean data</h3><p>Raw messages are parsed into typed tables: order-book snapshots, level updates, trades, and BTC reference prices, all at exact fixed-point scale so nothing is silently rounded through floating point.</p></div></div>
+          <div class="explain-item"><span class="explain-icon">03</span><div><h3>Visualized as history</h3><p>The <a href="#/history">History</a> view turns that normalized data into UP/DOWN price paths, spreads, and a full reconstructed order book at any instant you pick.</p></div></div>
+          <div class="explain-item"><span class="explain-icon">04</span><div><h3>Replayable for backtesting</h3><p>The <a href="#/backtest">Backtest</a> view runs a strategy — entry price, stop loss, position size, staking — against every recorded market by walking the real recorded book, so fills reflect what the book could actually have given you.</p></div></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Download the normalized data</div>
+            <div class="panel-subtitle">CSV columns: slug, condition_id, outcome, t_ms, iso_time, best_bid, best_ask, midpoint, spread</div>
+          </div>
+        </div>
+        <div class="form-body">
+          <div class="field">
+            <label for="downloadSlug">One market, by slug</label>
+            <div style="display:flex;gap:8px">
+              <input class="control" id="downloadSlug" placeholder="btc-updown-15m-1785615300">
+              <button class="soft-button" id="downloadSlugBtn" style="white-space:nowrap;padding:0 16px">Download CSV</button>
+            </div>
+            <div class="field-hint">The exact slug shown in History, e.g. via its "Copy slug" button.</div>
+          </div>
+          <div class="field">
+            <label>A time range, by market start</label>
+            <div class="control-pair">
+              <input class="control" id="downloadFrom" type="datetime-local">
+              <input class="control" id="downloadTo" type="datetime-local">
+            </div>
+            <div class="field-hint">Every market starting in this window, combined into one CSV. Leave one side blank to leave that edge open — but set at least one.</div>
+            <button class="soft-button" id="downloadRangeBtn" style="margin-top:10px">Download selection</button>
+          </div>
+          <div class="field">
+            <label>Everything recorded so far</label>
+            <button class="soft-button" id="downloadAllBtn">Download all normalized data</button>
+            <div class="field-hint">One row per top-of-book observation across every market. This can be a large file and take a while to generate as the archive grows.</div>
+          </div>
+        </div>
+      </section>
+
+      <p class="home-note"><strong>Read-only.</strong> Downloads stream straight from the same normalized archive the charts read — no wallet, no credentials, no order submission anywhere on this site.</p>
+    </main>
   </div>
 
   <script>
@@ -469,6 +901,7 @@
     const state = {
       markets: [], filtered: [], selected: null, series: null, book: null, trades: null,
       cursorMs: null, requestId: 0, chartHoverMs: null, listTimer: null, liveTimer: null,
+      allMarkets: [], pendingSlug: null, tradeMarks: null,
     };
 
     const colors = {
@@ -560,7 +993,8 @@
       try {
         const previous = state.selected;
         const payload = await api('/api/markets?limit=1000');
-        const wanted = new URLSearchParams(location.search).get('market');
+        state.allMarkets = payload.markets;
+        const wanted = state.pendingSlug || new URLSearchParams(location.search).get('market');
         state.markets = payload.markets.filter(market => {
           if (market.status === 'upcoming') return false;
           if (market.status === 'recording' || ['ready', 'partial'].includes(market.data_status)) return true;
@@ -576,9 +1010,9 @@
         renderMarketList();
         if (initial && !state.selected) {
           const first = state.markets.find(m => m.slug === wanted) || state.markets.find(m => m.status === 'recording') || state.markets.find(m => m.data_status === 'ready') || state.markets[0];
-          if (first) await selectMarket(first.slug);
+          if (first) await selectMarket(first.slug, false, state.pendingSlug === first.slug);
         } else if (selectionChanged && requested) {
-          await selectMarket(requested.slug, true);
+          await selectMarket(requested.slug, true, state.tradeMarks?.slug === requested.slug);
         }
       } catch (error) { toast(`Market list unavailable: ${error.message}`); }
     }
@@ -598,12 +1032,19 @@
       if (target) await selectMarket(target.slug);
     }
 
-    async function selectMarket(slug, preserveSeries = false) {
+    async function selectMarket(slug, preserveSeries = false, preserveTradeMarks = false) {
       const market = state.markets.find(item => item.slug === slug);
       if (!market) return;
+      // Backtest fills belong only to the explicit audit navigation that carried
+      // them here. Ordinary History selection must never inherit annotations from
+      // a previously inspected result row, even when it selects the same slug.
+      if (!preserveTradeMarks) state.tradeMarks = null;
       const carriedSeries = preserveSeries && state.selected?.slug === slug ? state.series : null;
       const request = ++state.requestId; state.selected = market; state.cursorMs = null; setLoading(true); renderMarketList();
-      history.replaceState({}, '', `${location.pathname}?market=${encodeURIComponent(slug)}`);
+      const historyUrl = new URL(location.href);
+      historyUrl.searchParams.set('market', slug);
+      historyUrl.hash = '#/history';
+      history.replaceState({}, '', `${historyUrl.pathname}${historyUrl.search}${historyUrl.hash}`);
       $('marketEyebrow').textContent = `${dateLabel(market.start_ms)} · ${timeLabel(market.start_ms, false)}–${timeLabel(market.end_ms, false)} local time`;
       $('marketTitle').textContent = 'Bitcoin Up or Down — 15 minutes';
       $('marketDescription').textContent = market.slug;
@@ -751,6 +1192,42 @@
       const g=chartGeometry(width,height); drawGrid(context,g,market,0,1,false);
       if(!empty){if($('showBands').checked){drawBand(context,data.series.UP,market,g,colors.upFill);drawBand(context,data.series.DOWN,market,g,colors.downFill)} drawLine(context,data.series.UP,'mid',market,g,colors.up,2.2);drawLine(context,data.series.DOWN,'mid',market,g,colors.down,2.2)}
       const cursor=state.chartHoverMs??state.cursorMs; if(cursor!=null){const [x]=coords(market,g,cursor,0);context.strokeStyle='rgba(238,248,243,.35)';context.setLineDash([3,4]);context.beginPath();context.moveTo(x,g.top);context.lineTo(x,g.bottom);context.stroke();context.setLineDash([])}
+      drawTradeMarks(context, market, g);
+    }
+
+    /* Fills carried over from a backtest, drawn on the market they happened in.
+       The y position is the price actually paid or received, which is the point:
+       it sits above the ask line when the entry chased, and below the bid line
+       when the stop printed through its trigger. */
+    const MARK_STYLE = {
+      entry: { fill: '#4ade80', label: 'IN' },
+      stop_loss: { fill: '#f87171', label: 'STOP' },
+      take_profit: { fill: '#60a5fa', label: 'TP' },
+      flatten: { fill: '#fbbf24', label: 'EXIT' },
+    };
+
+    function drawTradeMarks(context, market, geometry) {
+      const carried = state.tradeMarks;
+      $('backtestReturn').hidden = !carried || carried.slug !== market.slug;
+      if (!carried || carried.slug !== market.slug || !carried.marks.length) return;
+      $('backtestReturnText').textContent =
+        `${carried.marks.length} simulated child fill${carried.marks.length === 1 ? '' : 's'} on ${carried.marks[0].side || 'this market'}, ` +
+        'drawn at the modeled execution price and arrival time.';
+      context.save();
+      context.font = '9px SFMono-Regular,Consolas,monospace';
+      context.textAlign = 'center';
+      for (const mark of carried.marks) {
+        if (mark.price == null) continue;
+        const [x, y] = coords(market, geometry, mark.utc_ms, mark.price * PRICE_SCALE);
+        const style = MARK_STYLE[mark.kind] || MARK_STYLE.flatten;
+        context.strokeStyle = 'rgba(9,17,14,.9)';
+        context.fillStyle = style.fill;
+        context.beginPath(); context.arc(x, y, 5, 0, Math.PI * 2);
+        context.fill(); context.lineWidth = 1.5; context.stroke();
+        const above = y > geometry.top + 22;
+        context.fillText(`${style.label} ${mark.price.toFixed(3)}`, x, above ? y - 10 : y + 16);
+      }
+      context.restore();
     }
 
     function complementPoints(up,down) { return up.map(point=>{const other=nearest(down,point.t_ms);return other&&point.mid!=null&&other.mid!=null?{t_ms:point.t_ms,value:Math.abs(PRICE_SCALE-point.mid-other.mid)}:null}).filter(Boolean); }
@@ -761,7 +1238,9 @@
       if(data){drawLine(context,data.series.UP,'spread',market,g,colors.up,1.5,0,max);drawLine(context,data.series.DOWN,'spread',market,g,colors.down,1.5,0,max);const complement=complementPoints(data.series.UP,data.series.DOWN).map(p=>({t_ms:p.t_ms,spread:p.value}));drawLine(context,complement,'spread',market,g,colors.amber,1.2,0,max)}
       context.fillStyle=colors.axis;context.font='10px system-ui';context.fillText('Bid–ask spread · amber = |1 − UP mid − DOWN mid|',g.left+5,g.top+11);
     }
-    function drawCharts(){drawPriceChart();drawSpreadChart()}
+    // A hidden view has zero-sized canvases; drawing into them wastes work and
+    // leaves the charts blank when the view is shown again.
+    function drawCharts(){if($('historyView').hidden)return;drawPriceChart();drawSpreadChart()}
 
     function showTooltip(event) {
       if(!state.series||!state.selected)return;const canvas=$('priceChart'),rect=canvas.getBoundingClientRect(),g=chartGeometry(rect.width,rect.height),x=Math.max(g.left,Math.min(event.clientX-rect.left,g.right));const ms=state.selected.start_ms+(x-g.left)/(g.right-g.left)*(state.selected.end_ms-state.selected.start_ms);state.chartHoverMs=ms;drawPriceChart();
@@ -795,11 +1274,554 @@
       $('marketSearch').addEventListener('input',renderMarketList);$('mobileMarketSelect').addEventListener('change',e=>selectMarket(e.target.value));$('previousMarket').addEventListener('click',()=>moveMarket(-1));$('nextMarket').addEventListener('click',()=>moveMarket(1));
       $('copySlug').addEventListener('click',async()=>{if(!state.selected)return;await navigator.clipboard.writeText(state.selected.slug);toast('Market slug copied')});$('showBands').addEventListener('change',drawCharts);$('jumpLatest').addEventListener('click',jumpLatest);$('timeCursor').addEventListener('input',cursorInput);
       $('priceChart').addEventListener('pointermove',showTooltip);$('priceChart').addEventListener('pointerleave',hideTooltip);$('priceChart').addEventListener('click',selectChartTime);
+      document.querySelectorAll('a[href="#/history"]').forEach(link => link.addEventListener('click', () => {
+        state.pendingSlug = null; state.tradeMarks = null;
+        if (!$('historyView').hidden) drawCharts();
+      }));
       new ResizeObserver(drawCharts).observe($('priceChartWrap'));document.addEventListener('visibilitychange',()=>{if(!document.hidden&&state.selected)setupLiveRefresh()});
     }
 
-    async function init(){
-      bindEvents();setInterval(()=>{$('utcClock').textContent=new Date().toISOString().slice(11,19)+' UTC'},1000);await Promise.all([loadHealth(),loadMarkets(true)]);state.listTimer=setInterval(()=>{loadHealth();loadMarkets(false)},30000);
+    /* ---- routing --------------------------------------------------------
+       Three views live in one document: the landing chooser, the recorded-market
+       explorer, and the backtester.  Each is started the first time it is opened
+       so that arriving at the site costs one request, not three. */
+    const VIEWS = { '#/': 'homeView', '#/history': 'historyView', '#/backtest': 'backtestView', '#/about': 'aboutView' };
+    const started = { history: false, backtest: false, about: false };
+
+    function route() { const hash = window.location.hash; return VIEWS[hash] ? hash : '#/'; }
+
+    async function applyRoute() {
+      const current = route();
+      for (const [hash, id] of Object.entries(VIEWS)) $(id).hidden = hash !== current;
+      document.querySelectorAll('.nav-link').forEach(node => node.classList.toggle('active', node.dataset.route === current));
+      if (current === '#/history') {
+        if (!started.history) { started.history = true; await startHistory(); }
+        drawCharts();
+      }
+      if (current === '#/backtest' && !started.backtest) { started.backtest = true; await startBacktest(); }
+      if (current === '#/about' && !started.about) { started.about = true; await startAbout(); }
+    }
+
+    /* ---- about / downloads ----------------------------------------------- */
+    function formatUsd(raw) {
+      const value = Number(raw);
+      if (!Number.isFinite(value)) return '—';
+      return value.toLocaleString(undefined, { style: 'currency', currency: 'USD', maximumFractionDigits: value >= 1000 ? 0 : 2 });
+    }
+
+    async function startAbout() {
+      try {
+        const stats = await api('/api/stats');
+        $('aboutVolume').textContent = formatUsd(stats.captured_notional_usd);
+        $('aboutMarketCount').textContent = stats.market_count.toLocaleString();
+        $('aboutTradeCount').textContent = stats.trade_count.toLocaleString();
+      } catch (error) { toast(`Coverage stats unavailable: ${error.message}`); }
+    }
+
+    function triggerDownload(url) {
+      const link = document.createElement('a');
+      link.href = url; link.rel = 'noopener';
+      document.body.append(link); link.click(); link.remove();
+    }
+
+    function bindAboutEvents() {
+      $('downloadSlugBtn').addEventListener('click', () => {
+        const slug = $('downloadSlug').value.trim();
+        if (!slug) { toast('Enter a market slug first'); return; }
+        triggerDownload(`/api/export.csv?slug=${encodeURIComponent(slug)}`);
+      });
+      $('downloadRangeBtn').addEventListener('click', () => {
+        const fromValue = $('downloadFrom').value, toValue = $('downloadTo').value;
+        if (!fromValue && !toValue) { toast('Set at least one side of the range, or use "Download all"'); return; }
+        const params = new URLSearchParams();
+        if (fromValue) params.set('from_ms', String(new Date(fromValue).getTime()));
+        if (toValue) params.set('to_ms', String(new Date(toValue).getTime()));
+        triggerDownload(`/api/export.csv?${params}`);
+      });
+      $('downloadAllBtn').addEventListener('click', () => triggerDownload('/api/export.csv'));
+    }
+
+    async function startHistory() {
+      await loadMarkets(true);
+      state.listTimer = setInterval(() => loadMarkets(false), 30000);
+    }
+
+    /* ---- backtest → chart ------------------------------------------------
+       A row in the backtest's market table is a claim about one 15-minute market.
+       Opening that market's own recorded price path, with the fills drawn on it,
+       is how the claim gets checked. */
+    async function openBacktestMarket(slug) {
+      const row = (bt.result?.episodes || []).find(item => item.slug === slug);
+      state.tradeMarks = row && row.marks?.length ? { slug, marks: row.marks } : null;
+      state.pendingSlug = slug;
+      // Setting the hash fires `hashchange` asynchronously, so the view would not
+      // exist yet when the lines below run; route it here and let the event's own
+      // call find the work already done.
+      window.location.hash = '#/history';
+      await applyRoute();
+      // The chooser's market list is time-filtered; a backtested market can predate
+      // it, so fall back to the unfiltered payload before giving up.
+      if (!state.markets.some(market => market.slug === slug)) {
+        const known = state.allMarkets.find(market => market.slug === slug);
+        if (!known) { state.pendingSlug = null; toast(`${slug} is no longer in the market list`); return; }
+        state.markets = [...state.markets, known].sort((a, b) => b.start_ms - a.start_ms);
+        renderMarketList();
+      }
+      if (state.selected?.slug !== slug) await selectMarket(slug, false, true);
+      else drawCharts();
+      state.pendingSlug = null;
+    }
+
+    /* ---- backtest ------------------------------------------------------ */
+    const bt = { meta: null, side: 'favoured', sizing: 'fixed', poll: null, result: null, running: false };
+
+    async function postJson(path, body) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      try {
+        const response = await fetch(path, {
+          method: 'POST', signal: controller.signal,
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+        return payload;
+      } finally { clearTimeout(timer); }
+    }
+
+    const usd = value => value == null ? '—' : `${value < 0 ? '-' : ''}$${Math.abs(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    const pct = value => value == null ? '—' : `${value.toFixed(2)}%`;
+    const num = value => value == null ? '—' : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    const utcLabel = iso => iso ? new Date(iso).toISOString().slice(0, 16).replace('T', ' ') : '—';
+    // Exit reasons are engine identifiers; only these read badly as bare words.
+    const EXIT_WORDS = { stop_loss: 'stop loss', stop_unfilled_held_to_settlement: 'stop unfilled — settled' };
+    const POLICY_WORDS = { adaptive_pov: 'Adaptive POV', twap: 'TWAP', immediate: 'Immediate sweep' };
+    const words = value => value ? (EXIT_WORDS[value] || String(value).replaceAll('_', ' ')) : '—';
+    const policyWords = value => POLICY_WORDS[value] || words(value);
+    // Why an order did not get everything it asked for. The distinction that
+    // matters is between the strategy's own ceiling, which the user chose, and the
+    // execution model's refusal to chase, which they did not.
+    const CONSTRAINT_WORDS = {
+      limit_price: 'your “never pay more than” ceiling',
+      max_price_through_touch: 'the realism model refusing to chase further from the best price',
+      displayed_depth_haircut: 'displayed depth assumed unreachable',
+      max_levels_swept: 'the pessimistic realism model’s five-level cap',
+      // Retained for old stored result payloads; production episode replay no
+      // longer applies a post-arrival public-volume window to immediate FAKs.
+      volume_participation: 'a legacy configured public-volume cap',
+      no_recent_public_volume: 'a legacy volume window with no eligible public print',
+      book_depth_exhausted: 'the visible book running out',
+      below_minimum_order_size: 'the order being smaller than the venue minimum',
+      empty_book_side: 'there being no quote at all on that side',
+      book_state_uncertain: 'the reconstructed book being unreliable there',
+      stale_book: 'the book being too old to trade on',
+      cash_budget: 'the available cash budget',
+      insufficient_available_cash: 'cash still awaiting an earlier fill or settlement',
+      parent_deadline_elapsed: 'the child arriving after its parent deadline',
+      market_closed_at_arrival: 'the market closing before the child arrived',
+    };
+    const constraint = value => CONSTRAINT_WORDS[value] || words(value);
+
+    async function startBacktest() {
+      try {
+        bt.meta = await api('/api/backtest/meta');
+      } catch (error) {
+        $('coverageNote').textContent = `Backtesting is unavailable: ${error.message}`;
+        $('runBacktest').disabled = true;
+        return;
+      }
+      const meta = bt.meta;
+      if (!meta.available) {
+        $('coverageNote').textContent = 'No market has a complete reconstructed order book yet.';
+        $('runBacktest').disabled = true;
+        return;
+      }
+      const excluded = Object.values(meta.excluded || {}).reduce((total, value) => total + value, 0);
+      $('coverageNote').textContent =
+        `${meta.episodes_eligible.toLocaleString()} markets ready · ${utcLabel(meta.earliest_utc)} → ${utcLabel(meta.latest_utc)} UTC` +
+        (excluded ? ` · ${excluded} excluded for incomplete data` : '');
+    }
+
+    function readForm() {
+      const value = id => { const parsed = parseFloat($(id).value); return Number.isFinite(parsed) ? parsed : null; };
+      const payload = {
+        entry_price: value('entryPrice'),
+        entry_limit_price: value('entryLimit'),
+        side: bt.side,
+        sizing: bt.sizing,
+        stake_usd: value('stake'),
+        realism: $('realism').value,
+        execution_policy: $('executionPolicy').value,
+        execution_horizon_seconds: value('executionHorizon'),
+      };
+      if ($('useEntryWindow').checked) { payload.entry_from_minute = value('entryFrom'); payload.entry_to_minute = value('entryTo'); }
+      if ($('useStopLoss').checked) {
+        payload.stop_loss_price = value('stopLossPrice');
+        if ($('useStopArm').checked) payload.stop_loss_from_minute = value('stopFromMinute');
+      }
+      if ($('fromDate').value) payload.from_date = $('fromDate').value;
+      if ($('toDate').value) payload.to_date = $('toDate').value;
+      return payload;
+    }
+
+    function showFormError(message) {
+      const node = $('formError');
+      node.hidden = !message;
+      node.textContent = message || '';
+    }
+
+    function setProgress(job) {
+      $('btStatus').hidden = false;
+      const done = job.completed_episodes || 0, total = job.total_episodes || 0;
+      const share = total ? Math.min(100, done / total * 100) : 0;
+      $('btProgress').style.width = `${share}%`;
+      $('btStatusCount').textContent = total ? `${done} / ${total} markets · ${job.elapsed_seconds}s` : '';
+      $('btStatusText').textContent = job.state === 'queued'
+        ? 'Waiting for the run queue…'
+        : job.state === 'running' ? 'Replaying recorded order books…' : 'Finished';
+    }
+
+    async function runBacktest(event) {
+      event.preventDefault();
+      if (bt.running) return;
+      showFormError('');
+      let submission;
+      try {
+        submission = await postJson('/api/backtest', readForm());
+      } catch (error) { showFormError(error.message); return; }
+
+      bt.running = true;
+      $('runBacktest').disabled = true;
+      $('runBacktest').textContent = 'Running…';
+      $('btPlaceholder').hidden = true;
+      setProgress({ state: 'queued', completed_episodes: 0, total_episodes: submission.total_episodes, elapsed_seconds: 0 });
+      setLoading(true);
+
+      clearInterval(bt.poll);
+      bt.poll = setInterval(async () => {
+        let job;
+        try { job = await api(`/api/backtest/${submission.job_id}`); }
+        catch (error) { finishRun(); showFormError(error.message); return; }
+        setProgress(job);
+        if (job.state === 'succeeded') { finishRun(); renderResult(job); }
+        else if (job.state === 'failed') { finishRun(); showFormError(job.error || 'the backtest failed'); }
+      }, 700);
+    }
+
+    function finishRun() {
+      clearInterval(bt.poll); bt.poll = null; bt.running = false; setLoading(false);
+      $('runBacktest').disabled = false; $('runBacktest').textContent = 'Run backtest';
+      // A failed first run would otherwise leave the whole result column blank.
+      if (!bt.result) $('btPlaceholder').hidden = false;
+      setTimeout(() => { $('btStatus').hidden = true; }, 900);
+    }
+
+    function metric(label, value, note, tone) {
+      const cls = tone === 'pos' ? ' class="pos"' : tone === 'neg' ? ' class="neg"' : '';
+      return `<div class="metric"><span>${label}</span><strong${cls}>${value}</strong><small>${note || ''}</small></div>`;
+    }
+
+    function renderResult(job) {
+      const result = job.result;
+      bt.result = result;
+      const summary = result.summary, liquidity = result.liquidity;
+      // finishRun executes before this renderer and restores the first-run empty
+      // state while bt.result is still null. Successful rendering always owns the
+      // panel from this point forward, so remove that empty state explicitly.
+      $('btPlaceholder').hidden = true;
+      $('btResults').hidden = false;
+      const policy = result.execution_policy || result.request?.execution_policy || 'immediate';
+      const horizon = result.request?.execution_horizon_seconds;
+      $('resultPolicy').textContent = policy === 'immediate' || horizon == null
+        ? policyWords(policy)
+        : `${policyWords(policy)} · ${horizon}s horizon`;
+      $('resultRealism').textContent = `${result.realism} realism`;
+      $('resultSubtitle').textContent =
+        `${summary.trades} trade${summary.trades === 1 ? '' : 's'} across ${summary.episodes_evaluated} recorded markets · ${job.elapsed_seconds}s`;
+
+      const tone = value => value == null ? null : value > 0 ? 'pos' : value < 0 ? 'neg' : null;
+      const compounding = summary.sizing === 'compound';
+      $('headlineMetrics').innerHTML = [
+        compounding
+          ? metric('Final balance', usd(summary.final_balance_usd), `from ${usd(summary.starting_balance_usd)} · ${pct(summary.total_return_pct)}`, tone(summary.total_return_pct))
+          : metric('Net profit', usd(summary.net_profit_usd), `after ${usd(summary.fees_usd)} of fees`, tone(summary.net_profit_usd)),
+        compounding
+          ? metric('Net profit', usd(summary.net_profit_usd), `after ${usd(summary.fees_usd)} of fees`, tone(summary.net_profit_usd))
+          : metric('Return on capital', pct(summary.return_on_capital_pct), `${usd(summary.capital_deployed_usd)} deployed`, tone(summary.return_on_capital_pct)),
+        metric('Win rate', pct(summary.win_rate_pct), `${summary.profitable_trades} of ${summary.trades} trades profitable`),
+        // The bar this strategy has to clear: a binary bought at p needs to be
+        // right p of the time just to break even, so this belongs next to the win rate.
+        metric('Break-even needs', pct(summary.break_even_win_rate_pct), `average entry ${summary.average_entry_price == null ? '—' : summary.average_entry_price.toFixed(3)}`,
+          summary.break_even_win_rate_pct != null && summary.side_correct_pct != null ? (summary.side_correct_pct >= summary.break_even_win_rate_pct ? 'pos' : 'neg') : null),
+        metric('Side correct', pct(summary.side_correct_pct), 'bought the side that settled'),
+        metric('Trades taken', num(summary.trades), `${pct(summary.traded_rate_pct)} of markets`),
+        compounding
+          ? metric('Max drawdown', pct(summary.max_drawdown_pct), `${usd(summary.max_drawdown_usd)} peak to trough`)
+          : metric('Profit per trade', usd(summary.net_profit_per_trade_usd), `avg win ${usd(summary.average_win_usd)} · loss ${usd(summary.average_loss_usd)}`, tone(summary.net_profit_per_trade_usd)),
+        compounding
+          ? metric('Profit per trade', usd(summary.net_profit_per_trade_usd), `avg win ${usd(summary.average_win_usd)} · loss ${usd(summary.average_loss_usd)}`, tone(summary.net_profit_per_trade_usd))
+          : metric('Max drawdown', usd(summary.max_drawdown_usd), 'worst peak-to-trough on the run'),
+        metric('Stopped out', num(summary.stopped_out), `${pct(summary.stop_out_rate_pct)} of trades`),
+      ].join('');
+
+      renderWarnings(summary, liquidity, result);
+      renderLiquidity(liquidity);
+      renderAllMetrics(summary, liquidity);
+      renderCurve(result);
+      renderBacktestTrades(result);
+      $('btFooter').textContent = `Run over ${summary.episodes_evaluated} markets · seeded and reproducible`;
+    }
+
+    function renderWarnings(summary, liquidity, result) {
+      const notes = [];
+      // The commonest way this form surprises people: "buy when it reaches 0.85"
+      // fires at whatever the ask already is when the window opens, not at 0.85.
+      if (summary.entry_price_above_trigger != null && summary.entry_price_above_trigger >= 0.02) {
+        notes.push(`Entries filled at <strong>${summary.average_entry_price.toFixed(3)} on average, ${summary.entry_price_above_trigger.toFixed(3)} above the ${result.request.entry_price} you asked for</strong> — the price was already past the trigger when the window opened, and “never pay more than ${result.request.entry_limit_price ?? '—'}” let it in. A binary bought at ${summary.average_entry_price.toFixed(3)} has to settle in your favour <strong>${pct(summary.break_even_win_rate_pct)}</strong> of the time just to break even; this run was side-correct ${pct(summary.side_correct_pct)}. Lower “never pay more than” to sit just above the entry price to test the strategy you meant.`);
+      }
+      if (summary.ended_early) {
+        notes.push(`<strong>The balance ran out.</strong> Compounding staked everything on each market and the account fell below a tradable size, so ${num(summary.markets_never_reached)} later markets were never reached. A fixed stake would have kept trading.`);
+      }
+      if (summary.sizing === 'compound' && summary.cash_awaiting_settlement_at_horizon_usd > 0) {
+        notes.push(`${usd(summary.cash_awaiting_settlement_at_horizon_usd)} of the final balance was still <strong>locked awaiting causally observed settlement</strong> at the replay horizon; only ${usd(summary.cash_available_at_horizon_usd)} was spendable then.`);
+      }
+      if (summary.average_stake_on_losses_usd != null && summary.average_stake_on_wins_usd != null
+          && summary.average_stake_on_losses_usd > summary.average_stake_on_wins_usd * 1.2) {
+        notes.push(`Losing trades were filled <strong>${(summary.average_stake_on_losses_usd / summary.average_stake_on_wins_usd).toFixed(1)}× larger</strong> than winning ones (${usd(summary.average_stake_on_losses_usd)} against ${usd(summary.average_stake_on_wins_usd)}). Depth appears when the market is moving, so the size you get filled on is biggest exactly when the move is against you — the trade count flatters the result.`);
+      }
+      if (liquidity.entry_fill_rate_pct != null && liquidity.entry_fill_rate_pct < 95 && liquidity.entry_orders) {
+        notes.push(`The order book absorbed only <strong>${pct(liquidity.entry_fill_rate_pct)}</strong> of the size you asked for. At this stake the result describes a much smaller position than intended — reduce the stake to see the strategy rather than the liquidity.`);
+      }
+      if (summary.trades === 0) {
+        notes.push('No market ever reached the entry price inside the window, so nothing was traded. Try a lower entry price or a wider time window.');
+      }
+      if (liquidity.shares_left_unsold) {
+        notes.push(`<strong>${num(liquidity.shares_left_unsold)} shares could not be sold at all</strong> and were carried into settlement. That is the liquidity risk this strategy family carries: the exit is wanted exactly when the bids disappear.`);
+      }
+      if (summary.episodes_evaluated < 400) {
+        notes.push(`Only ${summary.episodes_evaluated} markets were available. That is a small sample: treat this as a hypothesis, not a measurement.`);
+      }
+      const excluded = Object.entries(result.excluded || {});
+      if (excluded.length) {
+        notes.push(`Excluded from the run: ${excluded.map(([reason, count]) => `${count} ${words(reason)}`).join(', ')}.`);
+      }
+      const node = $('resultWarning');
+      node.hidden = !notes.length;
+      node.innerHTML = notes.map(text => `<div>${text}</div>`).join('');
+    }
+
+    function renderLiquidity(liquidity) {
+      $('liquidityPanel').hidden = false;
+      const fill = liquidity.entry_fill_rate_pct;
+      $('fillMetrics').innerHTML = [
+        `<div class="metric"><span>Entry fill rate</span><strong class="${fill != null && fill < 95 ? 'neg' : 'pos'}">${pct(fill)}</strong><div class="fill-bar"><i style="width:${Math.min(100, fill || 0)}%"></i></div><small>${num(liquidity.entry_shares_filled)} of ${num(liquidity.entry_shares_requested)} shares</small></div>`,
+        metric('Partially filled', num(liquidity.entry_orders_partially_filled), `of ${num(liquidity.entry_orders)} parent orders`),
+        metric('Entries rejected', num(liquidity.entry_orders_rejected), `${num(liquidity.entry_child_orders)} child orders sent`),
+        metric('Shares left unsold', num(liquidity.shares_left_unsold), 'exit could not clear them', liquidity.shares_left_unsold ? 'neg' : null),
+      ].join('');
+
+      const rows = [
+        ['Exit orders sent', num(liquidity.exit_orders)],
+        ['Exit fill rate', pct(liquidity.exit_fill_rate_pct)],
+        ['Exit shares filled', `${num(liquidity.exit_shares_filled)} of ${num(liquidity.exit_shares_requested)}`],
+        ['Average stop slippage', liquidity.average_stop_slippage == null ? '—' : `${liquidity.average_stop_slippage.toFixed(4)} below the stop price`],
+        ['Worst stop slippage', liquidity.worst_stop_slippage == null ? '—' : liquidity.worst_stop_slippage.toFixed(4)],
+      ];
+      for (const [reason, count] of Object.entries(liquidity.binding_constraints || {})) rows.push([`Limited by ${constraint(reason)}`, `${count} orders`]);
+      for (const [reason, count] of Object.entries(liquidity.rejection_reasons || {})) rows.push([`Rejected: ${constraint(reason)}`, `${count} orders`]);
+      $('fillDetail').innerHTML = rows.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('');
+    }
+
+    function renderAllMetrics(summary, liquidity) {
+      $('metricsPanel').hidden = false;
+      const rows = [
+        ['Staking', summary.sizing === 'compound' ? 'compound the balance' : 'fixed amount per market'],
+        ['Markets evaluated', num(summary.episodes_evaluated)],
+        ['Markets traded', `${num(summary.trades)} (${pct(summary.traded_rate_pct)})`],
+        ['Profitable trades', `${num(summary.profitable_trades)} of ${num(summary.trades)}`],
+        ['Losing trades', num(summary.losing_trades)],
+        ['Side correct', pct(summary.side_correct_pct)],
+        ['Win rate', pct(summary.win_rate_pct)],
+        ['Average entry price', summary.average_entry_price == null ? '—' : summary.average_entry_price.toFixed(4)],
+        ['Break-even win rate', pct(summary.break_even_win_rate_pct)],
+        ['Gross profit', usd(summary.gross_profit_usd)],
+        ['Fees paid', usd(summary.fees_usd)],
+        ['Net profit', usd(summary.net_profit_usd)],
+        ['Profit factor', summary.profit_factor == null ? '—' : summary.profit_factor.toFixed(3)],
+        ['Average win', usd(summary.average_win_usd)],
+        ['Average loss', usd(summary.average_loss_usd)],
+        ['Average stake on wins', usd(summary.average_stake_on_wins_usd)],
+        ['Average stake on losses', usd(summary.average_stake_on_losses_usd)],
+        ['Capital deployed', usd(summary.capital_deployed_usd)],
+        ['Largest position', usd(summary.largest_position_usd)],
+        ['Max drawdown', usd(summary.max_drawdown_usd)],
+        ['Stopped out', `${num(summary.stopped_out)} (${pct(summary.stop_out_rate_pct)})`],
+        ['Held to settlement', num(summary.held_to_settlement)],
+        ['Entry fill rate', pct(liquidity.entry_fill_rate_pct)],
+      ];
+      if (summary.execution_objective_usd != null) {
+        rows.push(
+          ['Execution policy', policyWords(bt.result.execution_policy)],
+          ['Parent completion', pct(summary.execution_fill_rate_pct)],
+          ['Implementation shortfall', usd(summary.execution_implementation_shortfall_usd)],
+          ['Non-fill penalty', usd(summary.execution_non_fill_penalty_usd)],
+          ['Adverse-selection penalty', usd(summary.execution_adverse_selection_penalty_usd)],
+          ['Execution objective', usd(summary.execution_objective_usd)]);
+      }
+      if (summary.sizing === 'compound') {
+        rows.splice(1, 0,
+          ['Starting balance', usd(summary.starting_balance_usd)],
+          ['Final balance', usd(summary.final_balance_usd)],
+          ['Cash available at horizon', usd(summary.cash_available_at_horizon_usd)],
+          ['Cash awaiting settlement', usd(summary.cash_awaiting_settlement_at_horizon_usd)],
+          ['Total return', pct(summary.total_return_pct)],
+          ['Max drawdown (balance)', pct(summary.max_drawdown_pct)]);
+      } else {
+        rows.push(['Return on capital', pct(summary.return_on_capital_pct)]);
+      }
+      $('allMetrics').innerHTML = rows.map(([label, value]) => `<div><span>${label}</span><strong>${value}</strong></div>`).join('');
+    }
+
+    function renderCurve(result) {
+      const curve = result && result.equity_curve;
+      $('curvePanel').hidden = !curve || curve.length < 2;
+      if (!curve || curve.length < 2) return;
+      // Compounding has an account balance to plot and a starting line to beat;
+      // fixed staking has neither, so it keeps the profit-from-zero curve.
+      const compounding = result.summary.sizing === 'compound';
+      const base = compounding ? result.summary.starting_balance_usd : 0;
+      $('curveTitle').textContent = compounding ? 'Account balance' : 'Cumulative profit';
+      $('curveSubtitle').textContent = compounding
+        ? `Every market stakes the whole balance · dashed line is the ${usd(base)} you started with`
+        : 'Trades in chronological order, one point per market entered';
+      const canvas = $('equityChart');
+      const { context, width, height } = canvasContext(canvas);
+      context.clearRect(0, 0, width, height);
+      const left = 56, right = width - 14, top = 14, bottom = height - 22;
+      const values = curve.map(point => compounding ? point.balance_usd : point.cumulative_usd);
+      let low = Math.min(base, ...values), high = Math.max(base, ...values);
+      if (high === low) { high += 1; low -= 1; }
+      const pad = (high - low) * 0.1; low -= pad; high += pad;
+      const x = index => left + (curve.length === 1 ? 0 : index / (curve.length - 1) * (right - left));
+      const y = value => bottom - (value - low) / (high - low) * (bottom - top);
+
+      context.font = '10px SFMono-Regular,Consolas,monospace';
+      context.fillStyle = colors.axis; context.strokeStyle = colors.grid; context.lineWidth = 1;
+      for (let step = 0; step <= 4; step += 1) {
+        const value = low + (high - low) * step / 4, py = Math.round(y(value)) + 0.5;
+        context.beginPath(); context.moveTo(left, py); context.lineTo(right, py); context.stroke();
+        context.textAlign = 'right'; context.fillText(`$${value.toFixed(0)}`, left - 8, py + 3);
+      }
+      const zero = y(base);
+      if (zero > top && zero < bottom) {
+        context.strokeStyle = 'rgba(209,236,224,.28)'; context.setLineDash([4, 4]);
+        context.beginPath(); context.moveTo(left, zero); context.lineTo(right, zero); context.stroke();
+        context.setLineDash([]);
+      }
+      const final = values[values.length - 1];
+      const stroke = final >= base ? colors.up : colors.down;
+      context.beginPath();
+      values.forEach((value, index) => index ? context.lineTo(x(index), y(value)) : context.moveTo(x(index), y(value)));
+      context.strokeStyle = stroke; context.lineWidth = 2; context.lineJoin = 'round'; context.stroke();
+      context.lineTo(x(curve.length - 1), Math.min(bottom, Math.max(top, zero)));
+      context.lineTo(x(0), Math.min(bottom, Math.max(top, zero)));
+      context.closePath();
+      context.fillStyle = final >= base ? colors.upFill : colors.downFill; context.fill();
+
+      context.fillStyle = colors.axis; context.textAlign = 'left';
+      context.fillText(utcLabel(curve[0].utc), left, height - 7);
+      context.textAlign = 'right';
+      context.fillText(utcLabel(curve[curve.length - 1].utc), right, height - 7);
+    }
+
+    function renderBacktestTrades(result) {
+      $('tradesPanel').hidden = false;
+      const onlyTraded = $('onlyTrades').checked;
+      const rows = result.episodes.filter(row => !onlyTraded || row.traded);
+      $('tradesSubtitle').textContent = `${rows.length} row${rows.length === 1 ? '' : 's'} · click one to see its price path and your fills` +
+        (result.episodes.length < result.summary.episodes_evaluated ? ` · newest ${result.episodes.length} of ${result.summary.episodes_evaluated} shown` : '');
+      $('tradeRowsBt').innerHTML = rows.length ? rows.map(row => {
+        const net = row.net_usd;
+        const netClass = net > 0 ? 'up' : net < 0 ? 'down' : '';
+        const won = row.won == null ? '—' : row.won ? '<span class="tag win">yes</span>' : '<span class="tag loss">no</span>';
+        return `<tr class="clickable" data-slug="${row.slug}" title="Open this market's recorded price path">
+          <td>${utcLabel(row.utc)}</td>
+          <td class="${row.side === 'UP' ? 'up' : row.side === 'DOWN' ? 'down' : ''}">${row.side || '—'}</td>
+          <td>${row.traded ? won : '—'}</td>
+          <td>${row.entry_price == null ? '—' : row.entry_price.toFixed(3)}</td>
+          <td>${row.entry_minute == null ? '—' : row.entry_minute.toFixed(1)}</td>
+          <td>${row.shares_requested == null ? '—' : `${num(row.shares_filled)}/${num(row.shares_requested)}`}</td>
+          <td>${row.traded ? usd(row.stake_usd) : '—'}</td>
+          <td>${words(row.exit_reason)}</td>
+          <td>${row.exit_price == null ? '—' : row.exit_price.toFixed(3)}</td>
+          <td>${row.traded ? usd(row.fees_usd) : '—'}</td>
+          <td class="${netClass}">${row.traded ? usd(net) : '—'}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="11" style="color:var(--faint)">No market matched this filter.</td></tr>';
+    }
+
+    function bindBacktestEvents() {
+      $('backtestForm').addEventListener('submit', runBacktest);
+      $('sideSelect').addEventListener('click', event => {
+        const button = event.target.closest('button[data-side]');
+        if (!button) return;
+        bt.side = button.dataset.side;
+        $('sideSelect').querySelectorAll('button').forEach(node => node.setAttribute('aria-pressed', String(node === button)));
+      });
+      const toggle = (checkbox, group, inputs) => $(checkbox).addEventListener('change', event => {
+        $(group).classList.toggle('off', !event.target.checked);
+        inputs.forEach(id => { $(id).disabled = !event.target.checked; });
+      });
+      $('sizingSelect').addEventListener('click', event => {
+        const button = event.target.closest('button[data-sizing]');
+        if (!button) return;
+        bt.sizing = button.dataset.sizing;
+        $('sizingSelect').querySelectorAll('button').forEach(node => node.setAttribute('aria-pressed', String(node === button)));
+        const compound = bt.sizing === 'compound';
+        $('stakeLabel').textContent = compound ? 'Starting balance (USD)' : 'Position size (USD per market)';
+        $('sizingHint').textContent = compound
+          ? 'Each signal stakes the cash then available; unsettled payouts stay locked, and one full loss can end the run.'
+          : 'The same stake on every market, so one bad market cannot end the run.';
+        $('stakeHint').textContent = compound
+          ? 'The first market starts with this balance. Later signals use only cash released by then; book depth can leave part unfilled and idle.'
+          : 'Converted to shares at the fill price. If the book is thinner than your size, the remainder simply does not fill — the result reports how much.';
+      });
+      toggle('useEntryWindow', 'entryWindowGroup', ['entryFrom', 'entryTo']);
+      toggle('useStopLoss', 'stopLossGroup', ['stopLossPrice']);
+      toggle('useStopArm', 'stopArmGroup', ['stopFromMinute']);
+      // Arming a stop that does not exist is not a strategy; the API rejects it.
+      $('useStopLoss').addEventListener('change', event => {
+        if (event.target.checked) return;
+        $('useStopArm').checked = false;
+        $('useStopArm').dispatchEvent(new Event('change'));
+      });
+      $('onlyTrades').addEventListener('change', () => { if (bt.result) renderBacktestTrades(bt.result); });
+      $('tradeRowsBt').addEventListener('click', event => {
+        const row = event.target.closest('tr[data-slug]');
+        if (row) openBacktestMarket(row.dataset.slug).catch(error => toast(error.message));
+      });
+      // Keep the entry ceiling sensible when the trigger moves, without pinning it.
+      $('entryPrice').addEventListener('change', () => {
+        const trigger = parseFloat($('entryPrice').value), limit = parseFloat($('entryLimit').value);
+        if (!Number.isFinite(trigger)) return;
+        $('ceilingHint').textContent = Math.min(1, trigger + 0.01).toFixed(2);
+        if (!Number.isFinite(limit) || limit < trigger) {
+          $('entryLimit').value = Math.min(1, trigger + 0.05).toFixed(2);
+        }
+      });
+      new ResizeObserver(() => { if (bt.result) renderCurve(bt.result); }).observe($('curvePanel'));
+    }
+
+    async function init() {
+      bindEvents();
+      bindBacktestEvents();
+      bindAboutEvents();
+      setInterval(() => { $('utcClock').textContent = new Date().toISOString().slice(11, 19) + ' UTC'; }, 1000);
+      window.addEventListener('hashchange', () => { applyRoute().catch(error => toast(error.message)); });
+      await loadHealth();
+      setInterval(loadHealth, 30000);
+      await applyRoute();
     }
     init().catch(error=>toast(error.message));
   })();

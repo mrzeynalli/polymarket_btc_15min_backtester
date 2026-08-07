@@ -20,7 +20,7 @@ from polymarket_bt.config import CollectorConfig
 from polymarket_bt.constants import POLYMARKET_PRICE_SCALE, SHARE_SIZE_SCALE, Source
 from polymarket_bt.models.books import BookLevel, BookSnapshot
 from polymarket_bt.models.events import RawEnvelope, make_raw_envelope
-from polymarket_bt.models.markets import MarketRecord
+from polymarket_bt.models.markets import MarketExecutionMetadata, MarketRecord
 from polymarket_bt.storage.raw_writer import RawArchive
 
 
@@ -262,6 +262,97 @@ class ClobRestClient:
             bids=levels("bids"),
             asks=levels("asks"),
             raw_event_reference=f"sequence:{envelope.sequence}",
+        )
+
+    async def fetch_market_info(self, market: MarketRecord) -> MarketExecutionMetadata:
+        """Archive and project the CLOB's current execution parameters.
+
+        The compact endpoint is authoritative for its fee curve, while the market
+        detail endpoint is authoritative for the exact ``seconds_delay``. ``itode``
+        alone is only an enable flag and must never be converted into a duration.
+        """
+        info_response = await self._request("GET", f"/clob-markets/{market.condition_id}")
+        info_envelope = self._archive_response(
+            info_response,
+            stream="market_info",
+            event_type="clob_market_info",
+            market_id=market.condition_id,
+            token_id=None,
+        )
+        info_payload = orjson.loads(info_response.raw_text)
+        if not isinstance(info_payload, dict):
+            raise ValueError("CLOB market-info response was not an object")
+        tokens = info_payload.get("t")
+        if isinstance(tokens, list):
+            returned = {
+                str(item.get("t") or item.get("token_id"))
+                for item in tokens
+                if isinstance(item, dict) and (item.get("t") or item.get("token_id"))
+            }
+            expected = {market.up_token_id, market.down_token_id}
+            if returned and not returned.issubset(expected):
+                raise ValueError("CLOB market-info returned a token from another condition")
+
+        detail_response = await self._request("GET", f"/markets/{market.condition_id}")
+        detail_envelope = self._archive_response(
+            detail_response,
+            stream="market_details",
+            event_type="clob_market_details",
+            market_id=market.condition_id,
+            token_id=None,
+        )
+        detail_payload = orjson.loads(detail_response.raw_text)
+        if not isinstance(detail_payload, dict):
+            raise ValueError("CLOB market-details response was not an object")
+        returned_condition = str(
+            detail_payload.get("condition_id") or detail_payload.get("conditionId") or ""
+        )
+        if returned_condition and returned_condition != market.condition_id:
+            raise ValueError("CLOB market-details returned a different condition")
+        detail_tokens = detail_payload.get("tokens")
+        if isinstance(detail_tokens, list):
+            returned = {
+                str(item.get("token_id") or item.get("t"))
+                for item in detail_tokens
+                if isinstance(item, dict) and (item.get("token_id") or item.get("t"))
+            }
+            expected = {market.up_token_id, market.down_token_id}
+            if returned and not returned.issubset(expected):
+                raise ValueError("CLOB market-details returned a token from another condition")
+
+        compact = MarketExecutionMetadata.from_clob_payload(
+            condition_id=market.condition_id,
+            payload=info_payload,
+            received_utc_ns=info_response.response_received_utc_ns,
+            sequence=info_envelope.sequence,
+            raw_event_reference=f"sequence:{info_envelope.sequence}",
+            source="clob_rest_market_info",
+        )
+        details = MarketExecutionMetadata.from_clob_payload(
+            condition_id=market.condition_id,
+            payload=detail_payload,
+            received_utc_ns=detail_response.response_received_utc_ns,
+            sequence=detail_envelope.sequence,
+            raw_event_reference=f"sequence:{detail_envelope.sequence}",
+            source="clob_rest_market",
+        )
+        return compact.model_copy(
+            update={
+                # The detail value is authoritative even when it is null: an
+                # enabled flag without an explicit duration remains unknown.
+                "taker_order_delay_ms": details.taker_order_delay_ms,
+                "received_utc_ns": details.received_utc_ns,
+                "sequence": details.sequence,
+                "source": "clob_rest",
+                "metadata_json": json.dumps(
+                    {"clob_market_info": info_payload, "market": detail_payload},
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ),
+                "raw_event_reference": (
+                    f"sequences:{info_envelope.sequence},{detail_envelope.sequence}"
+                ),
+            }
         )
 
     async def fetch_books(self, token_ids: list[str]) -> RestResponse:

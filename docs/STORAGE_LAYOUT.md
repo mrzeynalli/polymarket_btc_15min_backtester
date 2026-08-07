@@ -36,6 +36,7 @@ manifest quality is degraded.
 data/normalized/
   markets/part-*.parquet
   market_outcomes/part-*.parquet
+  market_execution_metadata/date=YYYY-MM-DD/hour=HH/part-*.parquet
   book_snapshots/date=YYYY-MM-DD/hour=HH/part-*.parquet
   book_snapshot_levels/date=YYYY-MM-DD/hour=HH/part-*.parquet
   book_updates/date=YYYY-MM-DD/hour=HH/part-*.parquet
@@ -96,17 +97,20 @@ data/state/status.json
 data/state/collector.lock
 ```
 
-SQLite is WAL mode and contains only low-volume registry, quarantine, run linkage, and checkpoint
-state. No high-volume market event is inserted into SQLite. `status.json` is atomically replaced and
-safe for external readers. The lock prevents two collectors from writing the same root.
+SQLite is WAL mode and contains only low-volume registry, deduplicated quarantine summaries, run
+linkage, and checkpoint state. Repeated rejected discovery candidates update one
+`quarantined_market_latest` row and its observation counter; they are not appended indefinitely.
+No high-volume market event is inserted into SQLite. `status.json` is atomically replaced and safe
+for external readers. The lock prevents two collectors from writing the same root.
 
 ## Reports and quarantine
 
 - `data/reports/<backtest-run>/` contains complete reproducibility/report artifacts.
 - `data/reports/data-quality/<date>/` contains validation summaries.
 - `data/reports/trade-reconciliation/` contains post-close comparison reports.
-- `data/quarantine/` is reserved for operator-reviewed data; ambiguous market records currently live
-  in the registry's `quarantined_markets` table with their raw Gamma payload.
+- `data/quarantine/` is reserved for operator-reviewed data. The registry retains the latest
+  ambiguous-market summary in `quarantined_market_latest`; the append-only raw Gamma archive is the
+  historical authority.
 
 ## Capacity and retention
 
@@ -117,3 +121,8 @@ close safely and stop. No raw data is auto-deleted.
 Retention is always explicit: verify manifests, create an off-host or encrypted backup, validate the
 backup hashes, then archive selected finalized partitions. Never remove `.partial`, registry, or
 manifest files blindly. Raw market data should outlive derived Parquet so new parsers remain possible.
+
+Registries created by early releases may contain a redundant append-only `quarantined_markets`
+table. Inspect it with `polymarket-bt compact-registry --inspect-only`. Reclaim its pages only while
+the collector is stopped, using `--apply`; the command creates a transactionally consistent backup
+by default and refuses to run while `collector.lock` exists.

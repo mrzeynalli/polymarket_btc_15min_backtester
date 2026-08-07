@@ -6,7 +6,9 @@ import itertools
 import json
 import shutil
 import signal
+import sqlite3
 import sys
+import time
 import uuid
 from collections import Counter
 from datetime import UTC, datetime
@@ -188,8 +190,15 @@ def dashboard(
     index: Annotated[Path, typer.Option(help="Single-file dashboard HTML.")] = Path(
         "web/index.html"
     ),
+    backtest_workspace: Annotated[
+        Path | None,
+        typer.Option(
+            help="Prepared episode workspace to serve interactive backtests from. "
+            "Must live outside the collector storage root; omit to disable backtesting."
+        ),
+    ] = None,
 ) -> None:
-    """Serve the read-only market explorer and JSON API."""
+    """Serve the read-only market explorer, backtester, and JSON API."""
     cfg = _config(config)
     from polymarket_bt.dashboard.server import run_dashboard
 
@@ -198,6 +207,9 @@ def dashboard(
         index_path=index.expanduser().resolve(),
         host=host,
         port=port,
+        backtest_workspace=(
+            backtest_workspace.expanduser().resolve() if backtest_workspace else None
+        ),
     )
 
 
@@ -258,6 +270,91 @@ def compact(
     for name in datasets:
         outputs.extend(str(path) for path in writer.compact(name))
     _emit({"outputs": outputs, "originals_retained": True})
+
+
+@app.command("compact-registry")
+def compact_registry(
+    config: ConfigOption = Path("configs/collector.yaml"),
+    apply: Annotated[
+        bool,
+        typer.Option(
+            "--apply/--inspect-only",
+            help="Remove the superseded append-only quarantine table and reclaim its pages.",
+        ),
+    ] = False,
+    backup: Annotated[
+        bool,
+        typer.Option(
+            "--backup/--no-backup",
+            help="Create a consistent SQLite backup before applying maintenance.",
+        ),
+    ] = True,
+) -> None:
+    """Inspect or compact the legacy market-registry quarantine history.
+
+    Raw Gamma archives remain the immutable history and the deduplicated latest
+    quarantine table remains in SQLite.  Applying this command is intentionally
+    refused while the collector lock exists so maintenance cannot race writes.
+    """
+    cfg = _config(config)
+    state = cfg.storage.root / "state"
+    path = state / "market-registry.sqlite"
+    lock = state / "collector.lock"
+    if apply and lock.exists():
+        raise typer.BadParameter("stop the collector before applying registry maintenance")
+
+    before_bytes = path.stat().st_size if path.exists() else 0
+    if not apply:
+        legacy_rows = 0
+        if path.exists():
+            # `MarketRegistry` deliberately initializes/migrates schema. An
+            # inspection command must not do that behind the operator's back, so
+            # open SQLite in URI read-only mode and issue only catalog/count reads.
+            with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as connection:
+                exists = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                    ("quarantined_markets",),
+                ).fetchone()
+                if exists:
+                    row = connection.execute("SELECT count(*) FROM quarantined_markets").fetchone()
+                    legacy_rows = int(row[0]) if row else 0
+        _emit(
+            {
+                "applied": False,
+                "legacy_rows": legacy_rows,
+                "database": str(path),
+                "before_bytes": before_bytes,
+                "after_bytes": before_bytes,
+                "reclaimed_bytes": 0,
+                "backup": None,
+            }
+        )
+        return
+
+    registry = MarketRegistry(path)
+    backup_path: Path | None = None
+    try:
+        legacy_rows = registry.legacy_quarantine_rows()
+        if apply:
+            if backup:
+                timestamp = datetime.now(tz=UTC).strftime("%Y%m%dT%H%M%SZ")
+                backup_path = state / f"market-registry.before-compact-{timestamp}.sqlite"
+                registry.backup_to(backup_path)
+            registry.remove_legacy_quarantine(vacuum=True)
+    finally:
+        registry.close()
+    after_bytes = path.stat().st_size if path.exists() else 0
+    _emit(
+        {
+            "applied": apply,
+            "legacy_rows": legacy_rows,
+            "database": str(path),
+            "before_bytes": before_bytes,
+            "after_bytes": after_bytes,
+            "reclaimed_bytes": before_bytes - after_bytes,
+            "backup": str(backup_path) if backup_path else None,
+        }
+    )
 
 
 def _normalized_trades(root: Path, condition_id: str) -> list[TradeEvent]:
@@ -490,6 +587,234 @@ def backtest(
     )
     persisted_summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
     _emit({"report_directory": str(output), "summary": persisted_summary})
+
+
+WorkspaceOption = Annotated[
+    Path,
+    typer.Option(
+        "--workspace",
+        "-w",
+        help="Backtest workspace directory. Never the collector's storage root.",
+    ),
+]
+
+
+def _episode_workspace(collector_config: Path, workspace: Path) -> tuple[Path, Path]:
+    """Resolve the read-only storage root and the writable workspace."""
+    collector_cfg = _config(collector_config)
+    storage_root = collector_cfg.storage.root
+    resolved = workspace.expanduser().resolve()
+    if resolved == storage_root.resolve() or storage_root.resolve() in resolved.parents:
+        raise typer.BadParameter(
+            "workspace must live outside the collector storage root; "
+            "backtesting never writes into recorded data"
+        )
+    return storage_root, resolved
+
+
+@app.command()
+def episodes(
+    workspace: WorkspaceOption = Path("data/backtest"),
+    config: ConfigOption = Path("configs/collector.yaml"),
+    build_tapes: Annotated[
+        bool, typer.Option("--build-tapes/--index-only", help="Also reconstruct book tapes.")
+    ] = False,
+    rebuild: Annotated[bool, typer.Option(help="Rebuild tapes that already exist.")] = False,
+) -> None:
+    """Index 15-minute episodes, resolve winners, and optionally build book tapes."""
+    from polymarket_bt.backtest.episodes import (
+        EpisodeIndexBuilder,
+        input_fingerprint,
+        write_episode_index,
+    )
+    from polymarket_bt.backtest.tape import TapeBuilder
+
+    storage_root, target = _episode_workspace(config, workspace)
+    with EpisodeIndexBuilder(storage_root, temporary_directory=target / ".duckdb-tmp") as builder:
+        found = builder.build()
+    write_episode_index(
+        found, target, storage_root=storage_root, input_fingerprint=input_fingerprint(storage_root)
+    )
+    eligible = [episode for episode in found if episode.eligible]
+    built = 0
+    if build_tapes:
+        with TapeBuilder(storage_root, target) as tapes:
+            for episode in eligible:
+                tapes.build(episode, overwrite=rebuild)
+                built += 1
+    _emit(
+        {
+            "workspace": str(target),
+            "episodes": len(found),
+            "eligible": len(eligible),
+            "tapes_built": built,
+            "exclusions": Counter(
+                episode.exclusion_reason for episode in found if episode.exclusion_reason
+            ),
+        }
+    )
+
+
+@app.command()
+def sweep(
+    workspace: WorkspaceOption = Path("data/backtest"),
+    config: ConfigOption = Path("configs/collector.yaml"),
+    entry_from: Annotated[
+        float, typer.Option(help="Entry window start, minutes into market.")
+    ] = 12.0,
+    entry_to: Annotated[float, typer.Option(help="Entry window end, minutes into market.")] = 14.0,
+    triggers: Annotated[
+        str, typer.Option(help="Comma-separated entry trigger prices, e.g. 0.80,0.90.")
+    ] = "0.80,0.85,0.90,0.95",
+    stops: Annotated[
+        str, typer.Option(help="Comma-separated stop-loss prices; 'none' means hold to settlement.")
+    ] = "none,0.60,0.70,0.75",
+    stop_from: Annotated[
+        float,
+        typer.Option(help="Arm the stop only from this minute; negative means always armed."),
+    ] = -1.0,
+    sizes: Annotated[str, typer.Option(help="Comma-separated order sizes in shares.")] = "100",
+    realism: Annotated[
+        str, typer.Option(help="Comma-separated realism presets.")
+    ] = "pessimistic,base,optimistic",
+    execution: Annotated[
+        str,
+        typer.Option(help="Comma-separated entry policies: adaptive_pov, twap, immediate."),
+    ] = "adaptive_pov,twap,immediate",
+    folds: Annotated[int, typer.Option(help="Walk-forward folds; 0 disables.")] = 3,
+    seed: Annotated[int, typer.Option(help="Random seed for latency draws.")] = 1729,
+) -> None:
+    """Sweep threshold-and-hold variants over indexed episodes and write a report."""
+    from polymarket_bt.backtest.episodes import read_episode_index
+    from polymarket_bt.backtest.sweep import (
+        SweepRunner,
+        grid,
+        walk_forward,
+        write_sweep_artifacts,
+    )
+    from polymarket_bt.constants import SHARE_SIZE_SCALE
+
+    _, target = _episode_workspace(config, workspace)
+    found = [episode for episode in read_episode_index(target) if episode.eligible]
+    if not found:
+        _emit({"error": "no eligible episodes indexed", "workspace": str(target)})
+        raise typer.Exit(3)
+
+    def prices(raw: str) -> list[int | None]:
+        values: list[int | None] = []
+        for item in raw.split(","):
+            token = item.strip().lower()
+            values.append(None if token in {"none", "hold"} else round(float(token) * 1e6))
+        return values
+
+    execution_policies = [item.strip() for item in execution.split(",") if item.strip()]
+    if not execution_policies:
+        raise typer.BadParameter(
+            "at least one execution policy is required", param_hint="--execution"
+        )
+    unknown_policies = sorted(set(execution_policies) - {"adaptive_pov", "twap", "immediate"})
+    if unknown_policies:
+        raise typer.BadParameter(
+            f"unknown execution policies: {', '.join(unknown_policies)}",
+            param_hint="--execution",
+        )
+    variants = [
+        variant
+        for policy in execution_policies
+        for variant in grid(
+            entry_windows=[(entry_from, entry_to)],
+            entry_triggers_scaled=[value for value in prices(triggers) if value is not None],
+            stop_loss_prices_scaled=prices(stops),
+            order_shares_scaled=[
+                round(float(item) * SHARE_SIZE_SCALE) for item in sizes.split(",")
+            ],
+            realism_names=[item.strip() for item in realism.split(",")],
+            stop_loss_from_minute=stop_from if stop_from >= 0 else None,
+            entry_execution_policy=policy,
+        )
+    ]
+    metrics, per_episode = SweepRunner(target, found, seed=seed).run(variants)
+    fold_results = []
+    if folds:
+        try:
+            fold_results = walk_forward(target, found, variants, folds=folds, seed=seed)
+        except ValueError as exc:
+            fold_results = []
+            typer.echo(f"walk-forward skipped: {exc}", err=True)
+    directory = target / "sweeps" / f"{int(time.time())}"
+    report_path = write_sweep_artifacts(
+        directory,
+        metrics,
+        per_episode,
+        episodes=found,
+        variants=variants,
+        seed=seed,
+        folds=fold_results,
+    )
+    best = max(metrics, key=lambda item: item.net_pnl_scaled)
+    _emit(
+        {
+            "report": str(report_path),
+            "episodes": len(found),
+            "variants": len(variants),
+            "best_by_net_pnl": {
+                "label": best.label,
+                "realism": best.realism,
+                "entries": best.entries,
+                "net_pnl_usdc": best.net_pnl_scaled / 1_000_000,
+                "side_correct_pct": best.side_correct_ppm / 10_000,
+            },
+        }
+    )
+
+
+@app.command()
+def verify_sim(
+    workspace: WorkspaceOption = Path("data/backtest"),
+    config: ConfigOption = Path("configs/collector.yaml"),
+    episodes_to_check: Annotated[
+        int, typer.Option("--episodes", help="How many episodes to cross-check.")
+    ] = 10,
+    trigger: Annotated[float, typer.Option(help="Entry trigger price.")] = 0.80,
+    stop: Annotated[float, typer.Option(help="Stop-loss exit price; 0 disables.")] = 0.75,
+    shares: Annotated[float, typer.Option(help="Order size in shares.")] = 100.0,
+    latency_ms: Annotated[int, typer.Option(help="Fixed latency for both simulators.")] = 50,
+) -> None:
+    """Check the fast tape simulator against the audited event engine, episode by episode."""
+    from polymarket_bt.backtest.episodes import read_episode_index
+    from polymarket_bt.backtest.realism import preset
+    from polymarket_bt.backtest.threshold_hold import ThresholdHoldParams
+    from polymarket_bt.backtest.verify import compare_episode
+    from polymarket_bt.constants import SHARE_SIZE_SCALE
+
+    storage_root, target = _episode_workspace(config, workspace)
+    found = [episode for episode in read_episode_index(target) if episode.eligible]
+    if not found:
+        _emit({"error": "no eligible episodes indexed", "workspace": str(target)})
+        raise typer.Exit(3)
+    params = ThresholdHoldParams(
+        entry_trigger_price_scaled=round(trigger * 1e6),
+        entry_limit_price_scaled=min(1_000_000, round(trigger * 1e6) + 100_000),
+        stop_loss_price_scaled=round(stop * 1e6) if stop else None,
+        order_shares_scaled=round(shares * SHARE_SIZE_SCALE),
+    )
+    comparisons = [
+        compare_episode(
+            storage_root, target, episode, params, preset("base"), latency_ms=latency_ms
+        )
+        for episode in found[:episodes_to_check]
+    ]
+    disagreements = [item.to_row() for item in comparisons if not item.agrees]
+    _emit(
+        {
+            "episodes_checked": len(comparisons),
+            "agreements": sum(1 for item in comparisons if item.agrees),
+            "disagreements": disagreements,
+            "traded_episodes": sum(1 for item in comparisons if item.fast_entry_shares_scaled),
+        }
+    )
+    if disagreements:
+        raise typer.Exit(4)
 
 
 @app.command()

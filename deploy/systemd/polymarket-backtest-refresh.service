@@ -1,0 +1,31 @@
+[Unit]
+Description=Refresh the episode index and order-book tapes served by the backtester
+After=polymarket-collector.service
+ConditionPathExists=/var/lib/polymarket-btc-backtester/normalized
+
+[Service]
+Type=oneshot
+User=polymarket-data
+Group=polymarket-data
+WorkingDirectory=/opt/polymarket-btc-backtester/current
+EnvironmentFile=-/etc/polymarket-collector.env
+# Reads recorded data read-only and writes only into its own workspace, which is
+# deliberately outside the collector storage root; the CLI refuses otherwise.
+ExecStart=/opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt episodes --config /opt/polymarket-btc-backtester/current/configs/collector.yaml --workspace /var/lib/polymarket-backtest --build-tapes
+Nice=15
+IOSchedulingClass=idle
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/var/lib/polymarket-backtest
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=true
+MemoryMax=3G
+# A rebuild after an outage can be long; a stuck run must not block the next one.
+TimeoutStartSec=3600

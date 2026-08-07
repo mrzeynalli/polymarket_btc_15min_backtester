@@ -221,6 +221,80 @@ def test_dashboard_series_and_book_reconstruction(tmp_path: Path, market: Market
     assert trade_payload["totals"]["UP"]["count"] == 1
 
 
+def test_dashboard_stats_and_export(tmp_path: Path, market: MarketRecord) -> None:
+    storage = tmp_path / "data"
+    selected = _historical_market(market)
+    registry = MarketRegistry(storage / "state" / "market-registry.sqlite")
+    registry.upsert(selected, "{}")
+    registry.close()
+    start = selected.market_start_utc_ns
+
+    top_rows = [
+        {
+            "condition_id": selected.condition_id,
+            "token_id": selected.up_token_id,
+            "received_utc_ns": start + 5_000_000_000,
+            "sequence": 10,
+            "best_bid_scaled": 500_000,
+            "best_ask_scaled": 520_000,
+            "midpoint_scaled": 510_000,
+            "spread_scaled": 20_000,
+        },
+        {
+            "condition_id": selected.condition_id,
+            "token_id": selected.down_token_id,
+            "received_utc_ns": start + 5_000_000_000,
+            "sequence": 10,
+            "best_bid_scaled": 470_000,
+            "best_ask_scaled": 490_000,
+            "midpoint_scaled": 480_000,
+            "spread_scaled": 20_000,
+        },
+    ]
+    _write_partition(storage, "top_of_book", top_rows, start)
+
+    trades = [
+        {
+            "condition_id": selected.condition_id,
+            "received_utc_ns": start + 15_000_000_000,
+            "sequence": 3,
+            "outcome": "UP",
+            "price_scaled": 520_000,
+            "size_scaled": 2_000_000,
+            "notional_scaled": 1_040_000,
+            "reported_side": "BUY",
+            "transaction_hash": "0xtest",
+        }
+    ]
+    _write_partition(storage, "trades", trades, start)
+
+    dashboard = DashboardData(storage)
+
+    stats = dashboard.stats()
+    assert stats["market_count"] == 1
+    assert stats["trade_count"] == 1
+    assert stats["captured_notional_usd"] == "1.04"
+
+    everything = dashboard.export_markets()
+    assert [item.market_slug for item in everything] == [selected.market_slug]
+
+    start_ms = start // 1_000_000
+    assert dashboard.export_markets(from_ms=start_ms, to_ms=start_ms) == everything
+    assert dashboard.export_markets(from_ms=start_ms + 1) == []
+    assert dashboard.export_markets(to_ms=start_ms - 1) == []
+
+    assert dashboard.export_header() == (
+        b"slug,condition_id,outcome,t_ms,iso_time,best_bid,best_ask,midpoint,spread\n"
+    )
+    rows = list(dashboard.export_rows_for_market(selected))
+    assert len(rows) == 2
+    up_row = next(row for row in rows if b",UP," in row)
+    assert up_row.startswith(f"{selected.market_slug},{selected.condition_id},UP,".encode())
+    assert b",0.5,0.52,0.51,0.02\n" in up_row
+    down_row = next(row for row in rows if b",DOWN," in row)
+    assert b",0.47,0.49,0.48,0.02\n" in down_row
+
+
 def test_dashboard_distinguishes_partial_and_preopen_only_data(
     tmp_path: Path, market: MarketRecord
 ) -> None:

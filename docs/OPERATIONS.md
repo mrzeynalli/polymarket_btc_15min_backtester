@@ -82,10 +82,30 @@ Do not use SIGKILL except when the documented stop timeout has elapsed and the f
 ```bash
 systemctl status polymarket-dashboard.service
 systemctl status polymarket-normalize.timer
+systemctl status polymarket-backtest-refresh.timer
 curl -sS http://127.0.0.1:9110/api/health
+curl -sS http://127.0.0.1:9110/api/backtest/meta
 journalctl -u polymarket-dashboard.service -f
 journalctl -u polymarket-normalize.service -f
+journalctl -u polymarket-backtest-refresh.service -f
 ```
+
+`polymarket-backtest-refresh.timer` extends `/var/lib/polymarket-backtest` — the episode index and one
+reconstructed depth tape per market — a few minutes after each quarter-hour boundary, once the closing
+market has been normalized. Tapes already present are never rebuilt, so a run costs only the new
+markets and the workspace grows by roughly 2 GB per day of recording. It runs as `polymarket-data`
+with `ReadWritePaths` limited to that workspace, so it cannot write to recorded data even in
+principle. To rebuild it from scratch after a data repair:
+
+```bash
+sudo -u polymarket-data env \
+  POLYMARKET_BT_STORAGE_ROOT=/var/lib/polymarket-btc-backtester \
+  /opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt episodes \
+  --config /opt/polymarket-btc-backtester/current/configs/collector.yaml \
+  --workspace /var/lib/polymarket-backtest --build-tapes --rebuild
+```
+
+The dashboard reloads the index whenever the file changes; no restart is needed after a refresh.
 
 The normalization timer uses `--max-files 4 --newest-first` so a backlog cannot expand one process
 without bound and new market intervals are published first. For an operator-controlled historical
@@ -189,6 +209,24 @@ Use `scripts/backup_manifests.sh <destination>` for a timestamped manifest copy.
 SQLite backup, use SQLite's `.backup` operation or stop the collector briefly; do not copy only the
 main database while an uncheckpointed WAL exists. Validate restores on another path before relying
 on them.
+
+### Legacy registry compaction
+
+Early releases appended every repeated rejected discovery candidate to
+`quarantined_markets`, even though the raw Gamma archive already preserved that history. Inspect an
+existing registry without changing it:
+
+```bash
+sudo -u polymarket-data env \
+  POLYMARKET_BT_STORAGE_ROOT=/var/lib/polymarket-btc-backtester \
+  /opt/polymarket-btc-backtester/current/.venv/bin/polymarket-bt compact-registry \
+  --config /opt/polymarket-btc-backtester/current/configs/collector.yaml --inspect-only
+```
+
+To reclaim the redundant pages, stop the collector, rerun with `--apply`, verify the reported backup
+and database, then restart and watch health. The default `--backup` uses SQLite's online backup API;
+keep it until the compacted registry and a fresh collector run have been verified. New releases only
+update the bounded `quarantined_market_latest` summary and therefore do not recreate the growth.
 
 ## Safe upgrade
 

@@ -39,6 +39,14 @@ class OrderBook:
         self.outcome = outcome
         self.bids: SortedDict[int, int] = SortedDict()
         self.asks: SortedDict[int, int] = SortedDict()
+        # Depth consumed by simulated fills, held as an overlay rather than
+        # subtracted from `bids`/`asks`.  The recorded feed is authoritative: a
+        # later change carries the source's own `reported_best_bid/ask`, and a book
+        # that had been edited by the simulator would fail those assertions and end
+        # the replay.  The overlay still prevents two simulated orders from taking
+        # the same displayed liquidity, which is the reason to track it at all.
+        self.consumed_bids: dict[int, int] = {}
+        self.consumed_asks: dict[int, int] = {}
         self.tick_size_scaled = 10_000
         self.minimum_order_size_scaled = 0
         self.last_sequence = 0
@@ -53,6 +61,26 @@ class OrderBook:
     @property
     def best_ask(self) -> int | None:
         return self.asks.peekitem(0)[0] if self.asks else None
+
+    def available_levels(self, side: str) -> list[tuple[int, int]]:
+        """Displayed levels minus simulated consumption, best level first."""
+        if side == "BUY":
+            levels = list(reversed(self.bids.items()))
+            consumed = self.consumed_bids
+        else:
+            levels = list(self.asks.items())
+            consumed = self.consumed_asks
+        remaining: list[tuple[int, int]] = []
+        for price, size in levels:
+            left = size - consumed.get(price, 0)
+            if left > 0:
+                remaining.append((price, left))
+        return remaining
+
+    def consume(self, side: str, price_scaled: int, size_scaled: int) -> None:
+        """Record displayed size taken by a simulated fill at one level."""
+        consumed = self.consumed_bids if side == "BUY" else self.consumed_asks
+        consumed[price_scaled] = consumed.get(price_scaled, 0) + size_scaled
 
     def replace(self, snapshot: BookSnapshot) -> bool:
         if snapshot.token_id != self.token_id or snapshot.condition_id != self.condition_id:
@@ -98,6 +126,10 @@ class OrderBook:
             raise InvalidBookState(issues)
         self.bids = bids
         self.asks = asks
+        # A replacement supersedes every level, including any the simulator had
+        # marked consumed.
+        self.consumed_bids.clear()
+        self.consumed_asks.clear()
         self.tick_size_scaled = snapshot.tick_size_scaled
         self.minimum_order_size_scaled = snapshot.minimum_order_size_scaled
         self.last_sequence = snapshot.sequence
@@ -122,6 +154,10 @@ class OrderBook:
             self.valid = False
             raise InvalidBookState(issues)
         side = self.bids if change.side == "BUY" else self.asks
+        # The source has restated this level, so any simulated consumption of the
+        # old resting size no longer applies to it.
+        consumed = self.consumed_bids if change.side == "BUY" else self.consumed_asks
+        consumed.pop(change.price_scaled, None)
         if change.new_size_scaled == 0:
             side.pop(change.price_scaled, None)
         else:

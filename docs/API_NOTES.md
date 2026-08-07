@@ -1,6 +1,7 @@
 # API notes
 
-Verified against official Polymarket documentation and live public responses on **2026-07-31 UTC**.
+Verified against official Polymarket documentation and live public responses through
+**2026-08-02 UTC**.
 Revalidate this file, fixtures, subscription schemas, and fees after every dependency or API upgrade.
 
 ## Endpoint summary
@@ -9,6 +10,7 @@ Revalidate this file, fixtures, subscription schemas, and fees after every depen
 |---|---|---|
 | Discovery/metadata | `https://gamma-api.polymarket.com` | none |
 | Book initialization/recovery | `https://clob.polymarket.com/book`, `/books` | none |
+| Per-market execution parameters | `https://clob.polymarket.com/clob-markets/{condition_id}`, `/markets/{condition_id}` | none |
 | Optional comparison | `https://clob.polymarket.com/prices-history` | none |
 | Level-2/trades/lifecycle | `wss://ws-subscriptions-clob.polymarket.com/ws/market` | none |
 | BTC references | `wss://ws-live-data.polymarket.com` | none |
@@ -28,6 +30,15 @@ mean UP. The observed payload included `conditionId`, `enableOrderBook`, `orderP
 `orderMinSize`, `acceptingOrders`, `negRisk`, `resolutionSource`, and `feeSchedule`.
 
 An actual sanitized 2026-07-31 response is in `tests/fixtures/gamma/current_btc_15m.json`.
+
+The collector refreshes both `GET /clob-markets/{condition_id}` and
+`GET /markets/{condition_id}` for relevant markets. The first response's compact `fd.r`, `fd.e`, and
+`fd.to` fee fields and the second response's `seconds_delay` are archived independently and
+normalized as timestamped `market_execution_metadata`. `itode` is only an enable flag, not a
+duration: live verification found `itode=true` alongside `seconds_delay=0`, so true without an
+explicit duration is recorded as unknown and false as zero. Replay converts exact seconds to
+milliseconds and merges the latest causal observations from both endpoints; Gamma remains a
+fallback for fields the venue responses did not provide.
 
 ## CLOB REST books
 
@@ -161,7 +172,9 @@ fee = shares × rate × price × (1 - price)
 At 100 shares and price 0.50 this is 1.75 USDC. The configuration effective date is 2026-03-31,
 matching the changelog expansion of crypto fees. The formula, parameters, effective dates, rounding,
 role, and minimum are configuration, not constants. Before a historical run, select the schedule
-effective for each market; the current engine uses one configured schedule per run.
+observed for each market. The episode index projects the latest authoritative CLOB observation
+available before market open (with Gamma as a field-level fallback) and records its source/time;
+the legacy event engine still accepts an explicit run-level schedule for compatibility.
 
 The changelog also notes fee-related REST response fields added in March 2026. Accordingly, raw fee
 objects are retained as JSON instead of forcing an older fixed schema.

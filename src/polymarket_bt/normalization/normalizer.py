@@ -22,7 +22,7 @@ from polymarket_bt.discovery.btc_market_matcher import Btc15mMarketMatcher
 from polymarket_bt.discovery.market_registry import MarketRegistry
 from polymarket_bt.models.books import BookLevel, BookSnapshot
 from polymarket_bt.models.events import RawEnvelope
-from polymarket_bt.models.markets import MarketRecord
+from polymarket_bt.models.markets import MarketExecutionMetadata, MarketRecord
 from polymarket_bt.normalization.deduplication import deduplicate_trades
 from polymarket_bt.normalization.parser import (
     EventParser,
@@ -113,11 +113,12 @@ class Normalizer:
 
     def _market_rows(
         self, envelope: RawEnvelope, reference: str
-    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         payload = load_json_decimal(envelope.payload_raw)
         events = payload if isinstance(payload, list) else [payload]
         markets: list[dict[str, Any]] = []
         outcomes: list[dict[str, Any]] = []
+        execution_metadata: list[dict[str, Any]] = []
         for event in events:
             if not isinstance(event, dict):
                 continue
@@ -132,6 +133,14 @@ class Normalizer:
                 row["matched_rules_json"] = json.dumps(row.pop("matched_rules"))
                 row["rejected_rules_json"] = json.dumps(row.pop("rejected_rules"))
                 markets.append(row)
+                execution_metadata.append(
+                    MarketExecutionMetadata.from_market_record(
+                        market,
+                        received_utc_ns=envelope.received_utc_ns,
+                        sequence=envelope.sequence,
+                        raw_event_reference=reference,
+                    ).model_dump()
+                )
                 for index, (token_id, label, normalized) in enumerate(
                     (
                         (market.up_token_id, market.up_outcome_label, "UP"),
@@ -150,7 +159,35 @@ class Normalizer:
                             "raw_event_reference": reference,
                         }
                     )
-        return markets, outcomes
+        return markets, outcomes, execution_metadata
+
+    @staticmethod
+    def _rest_market_execution_metadata(
+        envelope: RawEnvelope, reference: str
+    ) -> MarketExecutionMetadata | None:
+        sources = {
+            "clob_market_info": "clob_rest_market_info",
+            "clob_market_details": "clob_rest_market",
+        }
+        source = sources.get(envelope.event_type_hint or "")
+        if source is None:
+            return None
+        payload = load_json_decimal(envelope.payload_raw)
+        if not isinstance(payload, dict):
+            raise ValueError("CLOB market metadata response was not an object")
+        condition_id = str(
+            envelope.market_id or payload.get("condition_id") or payload.get("conditionId") or ""
+        )
+        if not condition_id:
+            raise ValueError("CLOB market metadata response has no condition ID")
+        return MarketExecutionMetadata.from_clob_payload(
+            condition_id=condition_id,
+            payload=payload,
+            received_utc_ns=envelope.received_utc_ns,
+            sequence=envelope.sequence,
+            raw_event_reference=reference,
+            source=source,
+        )
 
     def _rest_snapshot(self, envelope: RawEnvelope, reference: str) -> BookSnapshot | None:
         if envelope.event_type_hint != "book" or not envelope.token_id:
@@ -242,6 +279,52 @@ class Normalizer:
                     }
                 )
         return header, levels
+
+    @staticmethod
+    def _top_of_book_row(snapshot: BookSnapshot) -> dict[str, Any]:
+        best_bid = max((level.price_scaled for level in snapshot.bids), default=None)
+        best_ask = min((level.price_scaled for level in snapshot.asks), default=None)
+        return {
+            "schema_version": SCHEMA_VERSION,
+            "condition_id": snapshot.condition_id,
+            "token_id": snapshot.token_id,
+            "sequence": snapshot.sequence,
+            "received_utc_ns": snapshot.received_utc_ns,
+            "best_bid_scaled": best_bid,
+            "best_ask_scaled": best_ask,
+            "spread_scaled": (
+                best_ask - best_bid if best_bid is not None and best_ask is not None else None
+            ),
+            "midpoint_scaled": (
+                (best_ask + best_bid) // 2
+                if best_bid is not None and best_ask is not None
+                else None
+            ),
+            "bid_size_scaled": (
+                next(
+                    (
+                        level.size_scaled
+                        for level in snapshot.bids
+                        if level.price_scaled == best_bid
+                    ),
+                    None,
+                )
+                if best_bid is not None
+                else None
+            ),
+            "ask_size_scaled": (
+                next(
+                    (
+                        level.size_scaled
+                        for level in snapshot.asks
+                        if level.price_scaled == best_ask
+                    ),
+                    None,
+                )
+                if best_ask is not None
+                else None
+            ),
+        }
 
     @staticmethod
     def _operational_row(envelope: RawEnvelope) -> tuple[str, dict[str, Any]] | None:
@@ -418,18 +501,26 @@ class Normalizer:
             for envelope, reference in self._read_envelopes(entry):
                 try:
                     if envelope.source == Source.GAMMA:
-                        market_rows, outcome_rows = self._market_rows(envelope, reference)
+                        market_rows, outcome_rows, metadata_rows = self._market_rows(
+                            envelope, reference
+                        )
                         rows["markets"].extend(market_rows)
                         rows["market_outcomes"].extend(outcome_rows)
+                        rows["market_execution_metadata"].extend(metadata_rows)
                     elif envelope.source == Source.CLOB_REST:
                         operational = self._operational_row(envelope)
                         if operational:
                             rows[operational[0]].append(operational[1])
-                        snapshot = self._rest_snapshot(envelope, reference)
-                        if snapshot:
-                            header, levels = self._snapshot_rows(snapshot)
-                            rows["book_snapshots"].append(header)
-                            rows["book_snapshot_levels"].extend(levels)
+                        else:
+                            metadata = self._rest_market_execution_metadata(envelope, reference)
+                            if metadata:
+                                rows["market_execution_metadata"].append(metadata.model_dump())
+                            snapshot = self._rest_snapshot(envelope, reference)
+                            if snapshot:
+                                header, levels = self._snapshot_rows(snapshot)
+                                rows["book_snapshots"].append(header)
+                                rows["book_snapshot_levels"].extend(levels)
+                                rows["top_of_book"].append(self._top_of_book_row(snapshot))
                     elif envelope.source in {Source.CLOB_MARKET_WS, Source.RTDS}:
                         operational = self._operational_row(envelope)
                         if operational:

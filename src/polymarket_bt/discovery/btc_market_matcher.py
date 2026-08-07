@@ -10,7 +10,7 @@ import orjson
 from polymarket_bt.clock import decimal_to_scaled, parse_timestamp_ns, utc_now_ns
 from polymarket_bt.config import DiscoveryConfig
 from polymarket_bt.constants import POLYMARKET_PRICE_SCALE, SHARE_SIZE_SCALE
-from polymarket_bt.models.markets import MarketRecord, MatchDecision
+from polymarket_bt.models.markets import MarketExecutionMetadata, MarketRecord, MatchDecision
 
 _DIRECTION_WORDS = {"up", "down"}
 _ASSET_PATTERN = re.compile(r"\b(bitcoin|btc)\b", re.IGNORECASE)
@@ -193,6 +193,12 @@ class Btc15mMarketMatcher:
                 "makerBaseFee",
                 "takerBaseFee",
                 "makerRebatesFeeShareBps",
+                "takerOrderDelayMs",
+                "orderDelayMs",
+                "takerOrderDelayEnabled",
+                "orderDelayEnabled",
+                "secondsDelay",
+                "itode",
             )
             if key in market
         }
@@ -240,6 +246,12 @@ class Btc15mMarketMatcher:
             matched_rules=tuple(matched),
             rejected_rules=tuple(rejected),
         )
+        market_record = MarketExecutionMetadata.from_market_record(
+            market_record,
+            received_utc_ns=market_record.discovered_utc_ns,
+            sequence=0,
+            raw_event_reference=None,
+        ).apply_to_market(market_record)
         return MatchDecision(
             accepted=True,
             ambiguous=False,

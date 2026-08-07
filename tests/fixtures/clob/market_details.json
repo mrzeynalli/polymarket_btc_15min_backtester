@@ -1,0 +1,21 @@
+{
+  "condition_id": "0xe9f9f391ea621795260318c03e8fb2ce9f9c3735c00f6b5fc36d6fa9fdf6fba7",
+  "question": "Bitcoin Up or Down - July 31, 3:15PM-3:30PM ET",
+  "market_slug": "btc-updown-15m-1785525300",
+  "active": true,
+  "closed": false,
+  "accepting_orders": true,
+  "seconds_delay": 0,
+  "minimum_order_size": 5,
+  "minimum_tick_size": 0.01,
+  "tokens": [
+    {
+      "token_id": "34514733905773960524951981626001763630472774201069326821853681208375806114523",
+      "outcome": "Up"
+    },
+    {
+      "token_id": "24782807235358152507786845281741214375103685901317012758507937693678885276944",
+      "outcome": "Down"
+    }
+  ]
+}

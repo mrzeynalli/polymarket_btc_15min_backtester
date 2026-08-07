@@ -80,6 +80,26 @@ MARKET_OUTCOMES = _schema(
     ]
 )
 
+MARKET_EXECUTION_METADATA = _schema(
+    [
+        ("schema_version", pa.int32(), False),
+        ("condition_id", pa.string(), False),
+        ("received_utc_ns", pa.int64(), False),
+        ("sequence", pa.int64(), False),
+        ("fee_rate", pa.string(), True),
+        ("fee_exponent", pa.int32(), True),
+        ("fee_taker_only", pa.bool_(), True),
+        ("maker_base_fee_bps", pa.int64(), True),
+        ("taker_base_fee_bps", pa.int64(), True),
+        ("taker_order_delay_ms", pa.int32(), True),
+        ("tick_size_scaled", pa.int64(), True),
+        ("minimum_order_size_scaled", pa.int64(), True),
+        ("source", pa.string(), False),
+        ("metadata_json", pa.string(), False),
+        ("raw_event_reference", pa.string(), True),
+    ]
+)
+
 BOOK_SNAPSHOTS = _schema(
     [
         ("schema_version", pa.int32(), False),
@@ -340,6 +360,7 @@ MARKET_RESOLUTIONS = _schema(
 SCHEMAS: dict[str, pa.Schema] = {
     "markets": MARKETS,
     "market_outcomes": MARKET_OUTCOMES,
+    "market_execution_metadata": MARKET_EXECUTION_METADATA,
     "book_snapshots": BOOK_SNAPSHOTS,
     "book_snapshot_levels": BOOK_SNAPSHOT_LEVELS,
     "book_updates": BOOK_UPDATES,

@@ -50,6 +50,11 @@ resolution. The registry quarantines uncertain mapping decisions. `validate-data
 `validate-books --market` report available counts and reconstruction errors; post-close resolution
 and Data API reconciliation may occur later than initial capture.
 
+The episode index rejects a market when an error/critical quality event marked
+`replay_eligible=false` overlaps its scheduled window, or when a recorded CLOB disconnect interval
+overlaps it. Coverage is checked independently for both tokens: one side starting late or ending
+early cannot be hidden by the other side's wider range.
+
 ## File-level validation
 
 `polymarket-bt verify-files` is read-only. It recalculates SHA-256, checks existence, validates
